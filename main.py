@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
-
-from parser import parse
+import sys
 
 if __name__ == '__main__':
-    titles, data = parse('/home/stsav012/Downloads/log 210120 154531.vcl')
-    print(titles)
-    print(data[-1])
+    try:
+        import gui
+    except ImportError as ex:
+        tb = sys.exc_info()[2]
+        print(ex.with_traceback(tb))
+        if 'qt' in str(ex.with_traceback(tb)).casefold():
+            print('Ensure that PyQt5-sip and PyQt5 are installed')
+    except SyntaxError:
+        print('Get a newer Python!')
+    else:
+        gui.run()
