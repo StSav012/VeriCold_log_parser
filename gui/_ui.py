@@ -44,7 +44,7 @@ def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.
 
 
 class DataModel(QAbstractTableModel):
-    ROW_BATCH_COUNT: Final[int] = 5
+    ROW_BATCH_COUNT: Final[int] = 512
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -108,7 +108,8 @@ class DataModel(QAbstractTableModel):
         return self._data.shape[1] > self._rows_loaded
 
     def fetchMore(self, index: QModelIndex = QModelIndex()):
-        # FIXME: if the 0th column is hidden, to data gets fetched despite it is available according to `canFetchMore`
+        # FIXME: if the 0th column is hidden, no data gets fetched despite it is available according to `canFetchMore`
+        #  For now, the only solution is to load more than one screen can display. If the table is scrolled, data loads.
         # https://sateeshkumarb.wordpress.com/2012/04/01/paginated-display-of-table-data-in-pyqt/
         reminder: int = self._data.shape[1] - self._rows_loaded
         items_to_fetch: int = min(reminder, self.ROW_BATCH_COUNT)
