@@ -326,19 +326,14 @@ class MainWindow(QMainWindow):
             row_texts.append('<td>' + self.table_model.data(si) + '</td>')
         return '<table>' + self.settings.line_end + ''.join(text) + '</table>'
 
-    def on_action_open_triggered(self):
-        new_file_name, _ = QFileDialog.getOpenFileName(
-            self, self.tr('Open'),
-            self._opened_file_name,
-            f'{self.tr("VeriCold data logfile")} (*.vcl);;{self.tr("All Files")} (*.*)')
-
+    def load_file(self, file_name: str) -> bool:
         try:
-            titles, data = parse(new_file_name)
+            titles, data = parse(file_name)
         except (IOError, RuntimeError) as ex:
             self.status_bar.showMessage(' '.join(ex.args))
-            return
+            return False
         else:
-            self._opened_file_name = new_file_name
+            self._opened_file_name = file_name
             self.table_model.set_data(data, titles)
             self.menu_view.clear()
             index: int
@@ -356,6 +351,14 @@ class MainWindow(QMainWindow):
             if not self._visible_columns:
                 self._visible_columns = self.table_model.header
             self.status_bar.showMessage(self.tr('Ready'))
+            return True
+
+    def on_action_open_triggered(self):
+        new_file_name, _ = QFileDialog.getOpenFileName(
+            self, self.tr('Open'),
+            self._opened_file_name,
+            f'{self.tr("VeriCold data logfile")} (*.vcl);;{self.tr("All Files")} (*.*)')
+        self.load_file(new_file_name)
 
     def on_action_column_triggered(self):
         a: QAction
@@ -401,12 +404,3 @@ class MainWindow(QMainWindow):
 
     def on_action_about_qt_triggered(self):
         QMessageBox.aboutQt(self)
-
-
-if __name__ == '__main__':
-    import sys
-
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
