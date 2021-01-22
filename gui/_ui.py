@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import os
 from datetime import datetime
+# FIXME: get rid of Path to use locations with `file://` prefixes
+from pathlib import Path
 from typing import List, Optional, Union
 
 import numpy as np
@@ -25,6 +28,11 @@ from PyQt5.QtWidgets import QAbstractItemView, QAction, QApplication, QDesktopWi
     QMessageBox, QStatusBar, QTableView, QWidget
 
 from parser import parse
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.TextFormat, str] = Qt.PlainText):
@@ -56,6 +64,10 @@ class DataModel(QAbstractTableModel):
     @property
     def header(self) -> List[str]:
         return self._header
+
+    @property
+    def data_(self) -> np.ndarray:
+        return self._data[1:]
 
     def rowCount(self, parent=None) -> int:
         return min(self._data.shape[1], self._rows_loaded)
@@ -133,6 +145,7 @@ class MainWindow(QMainWindow):
         self.menu_view: QMenu = QMenu(self.menu_bar)
         self.menu_about: QMenu = QMenu(self.menu_bar)
         self.action_open: QAction = QAction(self)
+        self.action_export: QAction = QAction(self)
         self.action_reload: QAction = QAction(self)
         self.action_preferences: QAction = QAction(self)
         self.action_quit: QAction = QAction(self)
@@ -143,6 +156,7 @@ class MainWindow(QMainWindow):
         self.status_bar: QStatusBar = QStatusBar(self)
 
         self._opened_file_name: str = ''
+        self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
         self._visible_columns: List[str] = []
 
@@ -171,11 +185,13 @@ class MainWindow(QMainWindow):
         self.status_bar.setObjectName('status_bar')
         self.setStatusBar(self.status_bar)
         self.action_open.setIcon(QIcon.fromTheme('document-open'))
-        self.action_open.setObjectName('actionOpen')
-        self.action_preferences.setMenuRole(QAction.PreferencesRole)
-        self.action_preferences.setObjectName('action_preferences')
+        self.action_open.setObjectName('action_open')
+        self.action_export.setIcon(QIcon.fromTheme('document-save-as'))
+        self.action_export.setObjectName('action_export')
         self.action_reload.setIcon(QIcon.fromTheme('view-refresh'))
         self.action_reload.setObjectName('action_reload')
+        self.action_preferences.setMenuRole(QAction.PreferencesRole)
+        self.action_preferences.setObjectName('action_preferences')
         self.action_quit.setIcon(QIcon.fromTheme('application-exit'))
         self.action_quit.setMenuRole(QAction.QuitRole)
         self.action_quit.setObjectName('action_quit')
@@ -190,6 +206,7 @@ class MainWindow(QMainWindow):
         self.action_about_qt.setMenuRole(QAction.AboutQtRole)
         self.action_about_qt.setObjectName('action_about_qt')
         self.menu_file.addAction(self.action_open)
+        self.menu_file.addAction(self.action_export)
         self.menu_file.addAction(self.action_reload)
         self.menu_file.addSeparator()
         self.menu_file.addAction(self.action_preferences)
@@ -204,15 +221,21 @@ class MainWindow(QMainWindow):
         self.menu_bar.addAction(self.menu_view.menuAction())
         self.menu_bar.addAction(self.menu_about.menuAction())
 
+        self.menu_view.setEnabled(False)
+        self.action_export.setEnabled(False)
+        self.action_reload.setEnabled(False)
+
         self.action_open.setShortcut('Ctrl+O')
-        self.action_reload.setShortcut('Ctrl+R')
+        self.action_export.setShortcuts(('Ctrl+S', 'Ctrl+E'))
+        self.action_reload.setShortcuts(('Ctrl+R', 'F5'))
         self.action_preferences.setShortcut('Ctrl+,')
-        self.action_quit.setShortcut('Ctrl+Q')
+        self.action_quit.setShortcuts(('Ctrl+Q', 'Ctrl+X'))
         self.action_copy.setShortcut('Ctrl+C')
         self.action_select_all.setShortcut('Ctrl+A')
         self.action_about.setShortcut('F1')
 
         self.action_open.triggered.connect(self.on_action_open_triggered)
+        self.action_export.triggered.connect(self.on_action_export_triggered)
         self.action_reload.triggered.connect(self.on_action_reload_triggered)
         self.action_quit.triggered.connect(self.on_action_quit_triggered)
         self.action_copy.triggered.connect(self.on_action_copy_triggered)
@@ -232,6 +255,7 @@ class MainWindow(QMainWindow):
         self.menu_about.setTitle(_translate('main_window', 'About'))
         self.menu_edit.setTitle(_translate('main_window', 'Edit'))
         self.action_open.setText(_translate('main_window', 'Open...'))
+        self.action_export.setText(_translate('main_window', 'Export...'))
         self.action_reload.setText(_translate('main_window', 'Reload'))
         self.action_preferences.setText(_translate('main_window', 'Preferences...'))
         self.action_quit.setText(_translate('main_window', 'Quit'))
@@ -245,6 +269,11 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def load_settings(self) -> None:
+        self.settings.beginGroup('location')
+        self._opened_file_name = self.settings.value('open', str(Path.cwd()), str)
+        self._exported_file_name = self.settings.value('export', str(Path.cwd()), str)
+        self.settings.endGroup()
+
         self.settings.beginGroup('columns')
         self._visible_columns = []
         i: int
@@ -267,6 +296,11 @@ class MainWindow(QMainWindow):
         self.settings.endGroup()
 
     def save_settings(self) -> None:
+        self.settings.beginGroup('location')
+        self.settings.setValue('open', self._opened_file_name)
+        self.settings.setValue('export', self._exported_file_name)
+        self.settings.endGroup()
+
         self.settings.beginGroup('columns')
         self.settings.beginWriteArray('visible')
         i: int
@@ -343,15 +377,78 @@ class MainWindow(QMainWindow):
                 action.triggered.connect(self.on_action_column_triggered)
             if not self._visible_columns:
                 self._visible_columns = self.table_model.header
+            self.menu_view.setEnabled(True)
+            self.action_export.setEnabled(True)
+            self.action_reload.setEnabled(True)
             self.status_bar.showMessage(self.tr('Ready'))
             return True
 
+    def save_csv(self, filename: str):
+        visible_columns: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
+                                                if not self._visible_columns or title in self._visible_columns])
+        print(visible_columns)
+        print(self.table_model.data_[visible_columns[0]].T)
+        try:
+            np.savetxt(filename, self.table_model.data_[visible_columns].T, fmt='%s',
+                       delimiter=self.settings.csv_separator, newline=self.settings.line_end,
+                       header=self.settings.csv_separator.join(self._visible_columns))
+        except IOError as ex:
+            self.status_bar.showMessage(' '.join(ex.args))
+            return False
+        else:
+            self._exported_file_name = filename
+            self.status_bar.showMessage(self.tr('Saved to {0}').format(filename))
+            return True
+
+    def save_xlsx(self, filename: str):
+        visible_columns: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
+                                                if not self._visible_columns or title in self._visible_columns])
+        try:
+            # noinspection PyUnresolvedReferences
+            pd.DataFrame(self.table_model.data_[visible_columns].T,
+                         columns=self._visible_columns)\
+                .to_excel(filename, sheet_name=str(Path(self._opened_file_name).with_suffix('').name))
+        except IOError as ex:
+            self.status_bar.showMessage(' '.join(ex.args))
+            return False
+        else:
+            self._exported_file_name = filename
+            self.status_bar.showMessage(self.tr('Saved to {0}').format(filename))
+            return True
+
     def on_action_open_triggered(self):
+        new_file_name: str
         new_file_name, _ = QFileDialog.getOpenFileName(
             self, self.tr('Open'),
             self._opened_file_name,
             f'{self.tr("VeriCold data logfile")} (*.vcl);;{self.tr("All Files")} (*.*)')
         self.load_file(new_file_name)
+
+    def on_action_export_triggered(self):
+        supported_formats: List[str] = [f'{self.tr("Text with separators")} (*.csv)']
+        if pd is not None:
+            try:
+                import openpyxl
+            except ImportError:
+                try:
+                    import xlsxwriter
+                except ImportError:
+                    pass
+                else:
+                    supported_formats.append(f'{self.tr("Microsoft Excel")} (*.xlsx)')
+            else:
+                supported_formats.append(f'{self.tr("Microsoft Excel")} (*.xlsx)')
+        print(self._opened_file_name[self._opened_file_name.rfind(os.sep) + 1:])
+        new_file_name: str
+        new_file_name, _ = QFileDialog.getSaveFileName(
+            self, self.tr('Export'),
+            str(Path(self._exported_file_name or self._opened_file_name)
+                .with_name(self._opened_file_name[self._opened_file_name.rfind(os.pathsep):])),
+            ';;'.join(supported_formats))
+        if Path(new_file_name).suffix == '.csv':
+            self.save_csv(new_file_name)
+        elif Path(new_file_name).suffix == '.xlsx':
+            self.save_xlsx(new_file_name)
 
     def on_action_column_triggered(self):
         a: QAction

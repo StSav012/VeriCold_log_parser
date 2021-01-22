@@ -61,4 +61,3 @@ class Settings(QSettings):
         self.beginGroup('export')
         self.setValue('csvSeparator', self._CSV_SEPARATORS.index(new_value))
         self.endGroup()
-
