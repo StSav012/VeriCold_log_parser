@@ -331,7 +331,10 @@ class MainWindow(QMainWindow):
             if row != si.row():
                 text.append(self.settings.csv_separator.join(row_texts))
                 row_texts = []
+                row = si.row()
             row_texts.append(self.table_model.data(si))
+        if row_texts:
+            text.append(self.settings.csv_separator.join(row_texts))
         return self.settings.line_end.join(text)
 
     def stringify_selection_html(self) -> str:
@@ -349,7 +352,10 @@ class MainWindow(QMainWindow):
             if row != si.row():
                 text.append('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>' + self.settings.line_end)
                 row_texts = []
+                row = si.row()
             row_texts.append('<td>' + self.table_model.data(si) + '</td>')
+        if row_texts:
+            text.append(self.settings.csv_separator.join(row_texts))
         return '<table>' + self.settings.line_end + ''.join(text) + '</table>'
 
     def load_file(self, file_name: str) -> bool:
