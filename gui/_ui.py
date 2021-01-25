@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 
+from gui._preferences import Preferences
 from gui._settings import Settings
 
 try:
@@ -153,6 +154,7 @@ class MainWindow(QMainWindow):
         self._opened_file_name: str = ''
         self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
+        self.preferences_dialog: Preferences = Preferences(self.settings, self)
         self._visible_columns: List[str] = []
 
         self.setupUi()
@@ -232,6 +234,7 @@ class MainWindow(QMainWindow):
         self.action_open.triggered.connect(self.on_action_open_triggered)
         self.action_export.triggered.connect(self.on_action_export_triggered)
         self.action_reload.triggered.connect(self.on_action_reload_triggered)
+        self.action_preferences.triggered.connect(self.on_action_preferences_triggered)
         self.action_quit.triggered.connect(self.on_action_quit_triggered)
         self.action_copy.triggered.connect(self.on_action_copy_triggered)
         self.action_select_all.triggered.connect(self.on_action_select_all_triggered)
@@ -495,6 +498,9 @@ class MainWindow(QMainWindow):
             return
         else:
             self.table_model.set_data(data, titles)
+
+    def on_action_preferences_triggered(self):
+        self.preferences_dialog.exec()
 
     def on_action_quit_triggered(self):
         self.close()
