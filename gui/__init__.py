@@ -10,7 +10,7 @@ def run():
     app = QApplication(sys.argv)
     window = MainWindow()
     for argv in sys.argv[1:]:
-        if window.load_file(argv):
+        if window.load_file(argv[len('file:'):] if argv.startswith('file:') else argv):
             break
     window.show()
     app.exec()

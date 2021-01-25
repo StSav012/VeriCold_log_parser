@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-import os
 from datetime import datetime
-# FIXME: get rid of Path to use locations with `file://` prefixes
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -28,11 +26,6 @@ from PyQt5.QtWidgets import QAbstractItemView, QAction, QApplication, QDesktopWi
     QMessageBox, QStatusBar, QTableView, QWidget
 
 from parser import parse
-
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
 
 
 def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.TextFormat, str] = Qt.PlainText):
@@ -66,10 +59,12 @@ class DataModel(QAbstractTableModel):
         return self._header
 
     @property
-    def data_(self) -> np.ndarray:
+    def all_data(self) -> np.ndarray:
         return self._data[1:]
 
-    def rowCount(self, parent=None) -> int:
+    def rowCount(self, parent=None, *, available_count: bool = False) -> int:
+        if available_count:
+            return self._data.shape[1]
         return min(self._data.shape[1], self._rows_loaded)
 
     def columnCount(self, parent=None) -> int:
@@ -250,6 +245,7 @@ class MainWindow(QMainWindow):
     def translate(self):
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate('main_window', 'VeriCold data log viewer'))
+        setattr(self, 'initial_window_title', self.windowTitle())
         self.menu_file.setTitle(_translate('main_window', 'File'))
         self.menu_view.setTitle(_translate('main_window', 'View'))
         self.menu_about.setTitle(_translate('main_window', 'About'))
@@ -386,10 +382,8 @@ class MainWindow(QMainWindow):
     def save_csv(self, filename: str):
         visible_columns: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
                                                 if not self._visible_columns or title in self._visible_columns])
-        print(visible_columns)
-        print(self.table_model.data_[visible_columns[0]].T)
         try:
-            np.savetxt(filename, self.table_model.data_[visible_columns].T, fmt='%s',
+            np.savetxt(filename, self.table_model.all_data[visible_columns].T, fmt='%s',
                        delimiter=self.settings.csv_separator, newline=self.settings.line_end,
                        header=self.settings.csv_separator.join(self._visible_columns))
         except IOError as ex:
@@ -401,13 +395,39 @@ class MainWindow(QMainWindow):
             return True
 
     def save_xlsx(self, filename: str):
-        visible_columns: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
-                                                if not self._visible_columns or title in self._visible_columns])
         try:
-            # noinspection PyUnresolvedReferences
-            pd.DataFrame(self.table_model.data_[visible_columns].T,
-                         columns=self._visible_columns)\
-                .to_excel(filename, sheet_name=str(Path(self._opened_file_name).with_suffix('').name))
+            import xlsxwriter
+            from xlsxwriter import Workbook
+            from xlsxwriter.format import Format
+            from xlsxwriter.worksheet import Worksheet
+        except ImportError as ex:
+            self.status_bar.showMessage(' '.join(ex.args))
+            return False
+
+        visible_columns: List[int] = [index for index, title in enumerate(self.table_model.header)
+                                      if not self._visible_columns or title in self._visible_columns]
+        try:
+            workbook: Workbook = Workbook(filename,
+                                          {'default_date_format': 'dd.mm.yyyy hh:mm:ss',
+                                           'nan_inf_to_errors': True})
+            header_format: Format = workbook.add_format({'bold': True})
+            worksheet: Worksheet = workbook.add_worksheet(str(Path(self._opened_file_name).with_suffix('').name))
+            worksheet.freeze_panes(1, 0)  # freeze first row
+            col: int = 0
+            _col: int
+            row: int
+            for _col in range(self.table_model.columnCount()):
+                if _col not in visible_columns:
+                    continue
+                worksheet.write_string(0, col, self._visible_columns[col], header_format)
+                if self._visible_columns[col].endswith(('(s)', '(secs)')):
+                    for row in range(self.table_model.rowCount(available_count=True)):
+                        worksheet.write_datetime(row + 1, col, datetime.fromtimestamp(self.table_model.item(row, _col)))
+                else:
+                    for row in range(self.table_model.rowCount(available_count=True)):
+                        worksheet.write_number(row + 1, col, self.table_model.item(row, _col))
+                col += 1
+            workbook.close()
         except IOError as ex:
             self.status_bar.showMessage(' '.join(ex.args))
             return False
@@ -422,33 +442,40 @@ class MainWindow(QMainWindow):
             self, self.tr('Open'),
             self._opened_file_name,
             f'{self.tr("VeriCold data logfile")} (*.vcl);;{self.tr("All Files")} (*.*)')
-        self.load_file(new_file_name)
+        if self.load_file(new_file_name):
+            self.setWindowTitle(f'{new_file_name} — {getattr(self, "initial_window_title")}')
 
     def on_action_export_triggered(self):
-        supported_formats: List[str] = [f'{self.tr("Text with separators")} (*.csv)']
-        if pd is not None:
-            try:
-                import openpyxl
-            except ImportError:
-                try:
-                    import xlsxwriter
-                except ImportError:
-                    pass
-                else:
-                    supported_formats.append(f'{self.tr("Microsoft Excel")} (*.xlsx)')
-            else:
-                supported_formats.append(f'{self.tr("Microsoft Excel")} (*.xlsx)')
-        print(self._opened_file_name[self._opened_file_name.rfind(os.sep) + 1:])
+        supported_formats: Dict[str, str] = {'.csv': f'{self.tr("Text with separators")} (*.csv)'}
+        supported_formats_callbacks: Dict[str, Callable] = {'.csv': self.save_csv}
+        try:
+            import xlsxwriter
+        except ImportError:
+            pass
+        else:
+            supported_formats['.xlsx'] = f'{self.tr("Microsoft Excel")} (*.xlsx)'
+            supported_formats_callbacks['.xlsx'] = self.save_xlsx
+        initial_filter: str = ''
+        if self._exported_file_name:
+            exported_file_name_ext: str = Path(self._exported_file_name).suffix
+            if exported_file_name_ext in supported_formats:
+                initial_filter = supported_formats[exported_file_name_ext]
         new_file_name: str
-        new_file_name, _ = QFileDialog.getSaveFileName(
+        new_file_name_filter: str  # BUG: it's empty when a native dialog is used
+        new_file_name, new_file_name_filter = QFileDialog.getSaveFileName(
             self, self.tr('Export'),
             str(Path(self._exported_file_name or self._opened_file_name)
-                .with_name(self._opened_file_name[self._opened_file_name.rfind(os.pathsep):])),
-            ';;'.join(supported_formats))
-        if Path(new_file_name).suffix == '.csv':
-            self.save_csv(new_file_name)
-        elif Path(new_file_name).suffix == '.xlsx':
-            self.save_xlsx(new_file_name)
+                .with_name(Path(self._opened_file_name).name)),
+            filter=';;'.join(supported_formats.values()),
+            initialFilter=initial_filter,  # BUG: it is not taken into account empty when a native dialog is used
+            # options=QFileDialog.DontUseNativeDialog
+        )
+        if not new_file_name:
+            return
+        new_file_name_ext: str = Path(new_file_name).suffix
+        if new_file_name_ext in supported_formats_callbacks:
+            supported_formats_callbacks[new_file_name_ext](new_file_name)
+            return
 
     def on_action_column_triggered(self):
         a: QAction
