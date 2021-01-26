@@ -20,11 +20,8 @@ except ImportError:
 
 from PyQt5.QtCore import QAbstractTableModel, QCoreApplication, QModelIndex, QRect, Qt
 from PyQt5.QtGui import QCloseEvent, QIcon
-from PyQt5.QtWidgets import QAbstractItemView, QAction, QApplication, QDesktopWidget, QFileDialog, QGridLayout, \
-    QHeaderView, \
-    QMainWindow, QMenu, \
-    QMenuBar, \
-    QMessageBox, QStatusBar, QTableView, QWidget
+from PyQt5.QtWidgets import QAction, QApplication, QDesktopWidget, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
+    QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
 
 from parser import parse
 
@@ -166,7 +163,6 @@ class MainWindow(QMainWindow):
         self.main_layout.setObjectName('main_layout')
         self.table.setAlternatingRowColors(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table.setSelectionMode(QAbstractItemView.ContiguousSelection)
         self.table.setWordWrap(False)
         self.table.setObjectName('table')
         self.table.horizontalHeader().setStretchLastSection(True)
@@ -322,18 +318,15 @@ class MainWindow(QMainWindow):
         :return: the plain text representation of the selected table lines
         """
         text: List[str] = []
-        row: Optional[int] = None
-        row_texts: List[str] = []
+        row_texts: List[str]
         si: QModelIndex
-        for si in self.table.selectionModel().selectedIndexes():
-            if row is None:
-                row = si.row()
-            if row != si.row():
-                text.append(self.settings.csv_separator.join(row_texts))
-                row_texts = []
-                row = si.row()
-            row_texts.append(self.table_model.data(si))
-        if row_texts:
+        rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
+        cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
+        text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
+                                        for _ in range(len(rows))]
+        for si in self.table.selectedIndexes():
+            text_matrix[rows.index(si.row())][cols.index(si.column())] = self.table_model.data(si)
+        for row_texts in text_matrix:
             text.append(self.settings.csv_separator.join(row_texts))
         return self.settings.line_end.join(text)
 
@@ -343,19 +336,16 @@ class MainWindow(QMainWindow):
         :return: the rich text representation of the selected table lines
         """
         text: List[str] = []
-        row: Optional[int] = None
-        row_texts: List[str] = []
+        row_texts: List[str]
         si: QModelIndex
-        for si in self.table.selectionModel().selectedIndexes():
-            if row is None:
-                row = si.row()
-            if row != si.row():
-                text.append('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>' + self.settings.line_end)
-                row_texts = []
-                row = si.row()
-            row_texts.append('<td>' + self.table_model.data(si) + '</td>')
-        if row_texts:
-            text.append(self.settings.csv_separator.join(row_texts))
+        rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
+        cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
+        text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
+                                        for _ in range(len(rows))]
+        for si in self.table.selectedIndexes():
+            text_matrix[rows.index(si.row())][cols.index(si.column())] = '<td>' + self.table_model.data(si) + '</td>'
+        for row_texts in text_matrix:
+            text.append('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>' + self.settings.line_end)
         return '<table>' + self.settings.line_end + ''.join(text) + '</table>'
 
     def load_file(self, file_name: str) -> bool:
@@ -477,7 +467,6 @@ class MainWindow(QMainWindow):
                 .with_name(Path(self._opened_file_name).name)),
             filter=';;'.join(supported_formats.values()),
             initialFilter=initial_filter,  # BUG: it is not taken into account empty when a native dialog is used
-            # options=QFileDialog.DontUseNativeDialog
         )
         if not new_file_name:
             return
