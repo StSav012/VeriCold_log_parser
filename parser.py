@@ -76,7 +76,8 @@ def _parse_with_numpy(filename: Union[str, Path]) -> Tuple[List[str], np.ndarray
         dt = dt.newbyteorder('<')
         data: np.ndarray = np.frombuffer(f_in.read(), dtype=dt)
         if not (data.size / _CHANNELS_COUNT).is_integer():
-            raise RuntimeError(f'Do not know how to process {data.size} numbers')
+            data = data[:-(data.size % _CHANNELS_COUNT)]
+            # raise RuntimeError(f'Do not know how to process {data.size} numbers')
         return titles, data.reshape((_CHANNELS_COUNT, -1), order='F')[1:]
 
 
