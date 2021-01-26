@@ -46,7 +46,7 @@ def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.
 
 
 class DataModel(QAbstractTableModel):
-    ROW_BATCH_COUNT: Final[int] = 512
+    ROW_BATCH_COUNT: Final[int] = 96
 
     def __init__(self, parent=None):
         super().__init__(parent)
