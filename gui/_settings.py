@@ -15,7 +15,6 @@ except ImportError:
 
     Final = _Final()
 
-
 __all__ = ['Settings']
 
 
@@ -26,15 +25,22 @@ class Settings(QSettings):
     CSV_SEPARATORS: Final[List[str]] = [r'comma (,)', r'tab (\t)', r'semicolon (;)', r'space ( )']
     _CSV_SEPARATORS: Final[List[str]] = [',', '\t', ';', ' ']
 
-    DIALOG = {
-        'Export': {
-            'Line ending:': (LINE_ENDS, _LINE_ENDS, 'line_end'),
-            'CSV separator:': (CSV_SEPARATORS, _CSV_SEPARATORS, 'csv_separator'),
-        }
-    }
-
     def __init__(self, *args):
         super().__init__(*args)
+        self.check_items: List[str] = []
+        self.check_items_values: List[bool] = []
+
+    @property
+    def dialog(self):
+        return {
+            'View': {
+                'Visible columns:': (self.check_items, self.check_items_values, 'All', 'visible_columns')
+            },
+            'Export': {
+                'Line ending:': (self.LINE_ENDS, self._LINE_ENDS, 'line_end'),
+                'CSV separator:': (self.CSV_SEPARATORS, self._CSV_SEPARATORS, 'csv_separator'),
+            }
+        }
 
     @property
     def line_end(self) -> str:
@@ -61,3 +67,23 @@ class Settings(QSettings):
         self.beginGroup('export')
         self.setValue('csvSeparator', self._CSV_SEPARATORS.index(new_value))
         self.endGroup()
+
+    @property
+    def visible_columns(self) -> List[bool]:
+        return self.check_items_values
+
+    @visible_columns.setter
+    def visible_columns(self, new_values: List[bool]):
+        self.check_items_values = new_values[:]
+
+    @property
+    def visible_column_names(self) -> List[str]:
+        return [s for s, v in zip(self.check_items, self.check_items_values) if v]
+
+    @property
+    def column_names(self) -> List[str]:
+        return self.check_items
+
+    @column_names.setter
+    def column_names(self, new_names: List[str]):
+        self.check_items = new_names[:]

@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QCheckBox, QComboBox, \
     QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGroupBox, \
     QSpinBox, QVBoxLayout, QWidget
 
+from gui._checklist import CheckList
 from gui._settings import Settings
 
 __all__ = ['Preferences']
@@ -22,7 +23,7 @@ class Preferences(QDialog):
             self.setWindowIcon(parent.windowIcon())
 
         layout: QVBoxLayout = QVBoxLayout(self)
-        for key, value in self.settings.DIALOG.items():
+        for key, value in self.settings.dialog.items():
             if isinstance(value, dict):
                 box: QGroupBox = QGroupBox(key, self)
                 box_layout: QFormLayout = QFormLayout(box)
@@ -87,6 +88,21 @@ class Preferences(QDialog):
                                 widget.valueChanged.connect(
                                     lambda _: setattr(self.settings, getattr(self.sender(), 'callback'),
                                                       self.sender().value()))
+                                box_layout.addRow(self.tr(key2), widget)
+                            # no else
+                        elif len(value2) == 4:
+                            value3a = value2[0]
+                            value3b = value2[1]
+                            value3c = value2[2]
+                            if isinstance(value3a, (list, tuple)) and isinstance(value3b, (list, tuple)) \
+                                    and isinstance(value3c, str):
+                                widget: CheckList = CheckList(box, show_all=value3c)
+                                setattr(widget, 'callback', value2[-1])
+                                for index, item in enumerate(value3a):
+                                    widget.addItem(self.tr(item), value3b[index])
+                                widget.checkStateChanged.connect(
+                                    lambda visibility: setattr(self.settings, getattr(self.sender(), 'callback'),
+                                                               visibility))
                                 box_layout.addRow(self.tr(key2), widget)
                             # no else
                         # no else
