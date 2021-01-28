@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-from typing import List, Type
+from typing import List, Set, Tuple, Type
 
 from PyQt5.QtCore import QSettings
 
@@ -27,14 +27,36 @@ class Settings(QSettings):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.check_items: List[str] = []
+        self.check_items_names: List[str] = []
         self.check_items_values: List[bool] = []
+
+        self.beginGroup('columns')
+        self._visible_column_names: Set[str] = set()
+        i: int
+        for i in range(self.beginReadArray('visible')):
+            self.setArrayIndex(i)
+            self._visible_column_names.add(self.value('name', '', str))
+        self.endArray()
+        self.endGroup()
+
+    def sync(self):
+        self.beginGroup('columns')
+        self.beginWriteArray('visible')
+        i: int
+        n: str
+        for i, n in enumerate(self._visible_column_names):
+            self.setArrayIndex(i)
+            self.setValue('name', n)
+        self.endArray()
+        self.endGroup()
+
+        super().sync()
 
     @property
     def dialog(self):
         return {
             'View': {
-                'Visible columns:': (self.check_items, self.check_items_values, 'All', 'visible_columns')
+                'Visible columns:': (self.check_items_names, self.check_items_values, 'All', 'visible_columns')
             },
             'Export': {
                 'Line ending:': (self.LINE_ENDS, self._LINE_ENDS, 'line_end'),
@@ -75,15 +97,17 @@ class Settings(QSettings):
     @visible_columns.setter
     def visible_columns(self, new_values: List[bool]):
         self.check_items_values = new_values[:]
+        self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)
 
     @property
-    def visible_column_names(self) -> List[str]:
-        return [s for s, v in zip(self.check_items, self.check_items_values) if v]
+    def columns(self) -> Tuple[List[str], List[bool]]:
+        return self.check_items_names, self.check_items_values
 
-    @property
-    def column_names(self) -> List[str]:
-        return self.check_items
+    @columns.setter
+    def columns(self, new: Tuple[List[str], List[bool]]):
+        self.check_items_names = new[0][:]
+        self.check_items_values = new[1][:]
+        self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)
 
-    @column_names.setter
-    def column_names(self, new_names: List[str]):
-        self.check_items = new_names[:]
+    def is_visible(self, title: str) -> bool:
+        return not self._visible_column_names or title in self._visible_column_names

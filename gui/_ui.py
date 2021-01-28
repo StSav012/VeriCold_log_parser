@@ -155,7 +155,6 @@ class MainWindow(QMainWindow):
         self._opened_file_name: str = ''
         self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
-        self._visible_columns: List[str] = []
 
         self.setupUi()
 
@@ -278,15 +277,6 @@ class MainWindow(QMainWindow):
         self._exported_file_name = self.settings.value('export', str(Path.cwd()), str)
         self.settings.endGroup()
 
-        self.settings.beginGroup('columns')
-        self._visible_columns = []
-        i: int
-        for i in range(self.settings.beginReadArray('visible')):
-            self.settings.setArrayIndex(i)
-            self._visible_columns.append(self.settings.value('name', '', str))
-        self.settings.endArray()
-        self.settings.endGroup()
-
         self.settings.beginGroup('window')
         desktop: QDesktopWidget = QApplication.desktop()
         self.move(round(0.5 * (desktop.width() - self.size().width())),
@@ -303,16 +293,6 @@ class MainWindow(QMainWindow):
         self.settings.beginGroup('location')
         self.settings.setValue('open', self._opened_file_name)
         self.settings.setValue('export', self._exported_file_name)
-        self.settings.endGroup()
-
-        self.settings.beginGroup('columns')
-        self.settings.beginWriteArray('visible')
-        i: int
-        n: str
-        for i, n in enumerate(self._visible_columns):
-            self.settings.setArrayIndex(i)
-            self.settings.setValue('name', n)
-        self.settings.endArray()
         self.settings.endGroup()
 
         self.settings.beginGroup('window')
@@ -379,23 +359,20 @@ class MainWindow(QMainWindow):
             self._opened_file_name = file_name
             self.table_model.set_data(data, titles)
             self.menu_view.clear()
-            self.settings.column_names = self.table_model.header
-            self.settings.visible_columns = [(not self._visible_columns or title in self._visible_columns)
-                                             for title in self.table_model.header]
+            self.settings.columns = self.table_model.header, [self.settings.is_visible(title)
+                                                              for title in self.table_model.header]
             index: int
             title: str
             for index, title in enumerate(self.table_model.header):
                 action: QAction = self.menu_view.addAction(title)
                 action.setCheckable(True)
-                if not self._visible_columns or title in self._visible_columns:
+                if self.settings.is_visible(title):
                     action.setChecked(True)
                     self.table.showColumn(index)
                 else:
                     action.setChecked(False)
                     self.table.hideColumn(index)
                 action.triggered.connect(self.on_action_column_triggered)
-            if not self._visible_columns:
-                self._visible_columns = self.table_model.header
             self.menu_view.setEnabled(True)
             self.action_export.setEnabled(True)
             self.action_reload.setEnabled(True)
@@ -403,12 +380,13 @@ class MainWindow(QMainWindow):
             return True
 
     def save_csv(self, filename: str):
-        visible_columns: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
-                                                if not self._visible_columns or title in self._visible_columns])
+        visible_column_indices: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
+                                                       if self.settings.is_visible(title)])
+        visible_column_names: List[str] = list(filter(self.settings.is_visible, self.table_model.header))
         try:
-            np.savetxt(filename, self.table_model.all_data[visible_columns].T, fmt='%s',
+            np.savetxt(filename, self.table_model.all_data[visible_column_indices].T, fmt='%s',
                        delimiter=self.settings.csv_separator, newline=self.settings.line_end,
-                       header=self.settings.csv_separator.join(self._visible_columns))
+                       header=self.settings.csv_separator.join(visible_column_names))
         except IOError as ex:
             self.status_bar.showMessage(' '.join(ex.args))
             return False
@@ -427,8 +405,9 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(' '.join(ex.args))
             return False
 
-        visible_columns: List[int] = [index for index, title in enumerate(self.table_model.header)
-                                      if not self._visible_columns or title in self._visible_columns]
+        visible_column_indices: List[int] = [index for index, title in enumerate(self.table_model.header)
+                                             if self.settings.is_visible(title)]
+        visible_column_names: List[str] = list(filter(self.settings.is_visible, self.table_model.header))
         try:
             workbook: Workbook = Workbook(filename,
                                           {'default_date_format': 'dd.mm.yyyy hh:mm:ss',
@@ -440,10 +419,10 @@ class MainWindow(QMainWindow):
             _col: int
             row: int
             for _col in range(self.table_model.columnCount()):
-                if _col not in visible_columns:
+                if _col not in visible_column_indices:
                     continue
-                worksheet.write_string(0, col, self._visible_columns[col], header_format)
-                if self._visible_columns[col].endswith(('(s)', '(secs)')):
+                worksheet.write_string(0, col, visible_column_names[col], header_format)
+                if visible_column_names[col].endswith(('(s)', '(secs)')):
                     for row in range(self.table_model.rowCount(available_count=True)):
                         worksheet.write_datetime(row + 1, col, datetime.fromtimestamp(self.table_model.item(row, _col)))
                 else:
@@ -497,16 +476,13 @@ class MainWindow(QMainWindow):
         new_file_name_ext: str = Path(new_file_name).suffix
         if new_file_name_ext in supported_formats_callbacks:
             supported_formats_callbacks[new_file_name_ext](new_file_name)
-            return
 
     def on_action_column_triggered(self):
         a: QAction
         i: int
-        self._visible_columns = []
         for i, a in enumerate(self.menu_view.actions()):
             if a.isChecked():
                 self.table.showColumn(i)
-                self._visible_columns.append(a.text())
             else:
                 self.table.hideColumn(i)
         self.settings.visible_columns = [a.isChecked() for a in self.menu_view.actions()]
@@ -527,9 +503,6 @@ class MainWindow(QMainWindow):
         visibility: bool
         action: QAction
         column: int
-        self._visible_columns = [title
-                                 for title, visibility in zip(self.settings.column_names, self.settings.visible_columns)
-                                 if visibility]
         for column, (visibility, action) in enumerate(zip(self.settings.visible_columns, self.menu_view.actions())):
             if action.isChecked() != visibility:
                 action.blockSignals(True)
