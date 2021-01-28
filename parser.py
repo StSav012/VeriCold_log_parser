@@ -20,15 +20,15 @@ except ImportError:
 
 __all__ = ['parse']
 
-_CHANNELS_COUNT: Final[int] = 52
+_MAX_CHANNELS_COUNT: Final[int] = 52
 
 
 def _parse_with_struct(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], List[List[float]]]:
     def _parse(file_handle: BinaryIO):
         file_handle.seek(0x1800 + 32)
         titles: List[str] = list(map(lambda s: s.strip(b'\0').decode('ascii'),
-                                     struct.unpack_from('<' + '32s' * (_CHANNELS_COUNT - 1),
-                                                        file_handle.read((_CHANNELS_COUNT - 1) * 32))))
+                                     struct.unpack_from('<' + '32s' * (_MAX_CHANNELS_COUNT - 1),
+                                                        file_handle.read((_MAX_CHANNELS_COUNT - 1) * 32))))
         titles = list(filter(None, titles))
         file_handle.seek(0x3000)
         data: List[List[float]] = [[] for _ in range(len(titles))]
@@ -61,15 +61,27 @@ def _parse_with_numpy(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], 
 
     def _parse(file_handle: BinaryIO):
         file_handle.seek(0x1800 + 32)
-        titles: List[str] = [file_handle.read(32).strip(b'\0').decode('ascii') for _ in range(_CHANNELS_COUNT - 1)]
+        titles: List[str] = [file_handle.read(32).strip(b'\0').decode('ascii') for _ in range(_MAX_CHANNELS_COUNT - 1)]
         titles = list(filter(None, titles))
         file_handle.seek(0x3000)
-        dt = np.dtype(np.float64)
-        dt = dt.newbyteorder('<')
+        # noinspection PyTypeChecker
+        dt: np.dtype = np.dtype(np.float64).newbyteorder('<')
         data: np.ndarray = np.frombuffer(file_handle.read(), dtype=dt)
+        i: int = 0
+        while i < data.size:
+            if data[i] / dt.itemsize > len(titles) + 1:
+                data = data[:i]
+                break
+                # raise RuntimeError('Inconsistent data: some records are faulty')
+            if data[i] / dt.itemsize < len(titles) + 1:
+                data = np.concatenate((data[:i + round(data[i] / dt.itemsize)],
+                                       [np.nan] * round(len(titles) + 1 - data[i] / dt.itemsize),
+                                       data[i + round(data[i] / dt.itemsize):]))
+                data[i] = dt.itemsize * (len(titles) + 1)
+            i += len(titles) + 1
         if not (data.size / (len(titles) + 1)).is_integer():
-            data = data[:-(data.size % (len(titles) + 1))]
-            # raise RuntimeError(f'Do not know how to process {data.size} numbers')
+            # data = data[:-(data.size % (len(titles) + 1))]
+            raise RuntimeError(f'Do not know how to process {data.size} numbers')
         return titles, data.reshape((len(titles) + 1, -1), order='F')[1:]
 
     if isinstance(filename, BinaryIO):

@@ -70,6 +70,8 @@ class DataModel(QAbstractTableModel):
 
     def formatted_item(self, row: int, column: int) -> str:
         value: np.float64 = self.item(row, column)
+        if np.isnan(value):
+            return ''
         if self._header[column].endswith(('(s)', '(secs)')):
             return datetime.fromtimestamp(value).isoformat()
         if self._header[column].endswith('(K)'):
@@ -92,7 +94,7 @@ class DataModel(QAbstractTableModel):
     def headerData(self, col, orientation, role: Qt.ItemDataRole = Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self._header[col]
-        if orientation == Qt.Vertical and role == Qt.DisplayRole:
+        if orientation == Qt.Vertical and role == Qt.DisplayRole and not np.isnan(self._data[0, col]):
             return f'{self._data[0, col]:.0f}'
         return None
 
