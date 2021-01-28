@@ -263,6 +263,7 @@ class MainWindow(QMainWindow):
         self.action_preferences.setText(_translate('main_window', 'Preferences...'))
         self.action_quit.setText(_translate('main_window', 'Quit'))
         self.action_copy.setText(_translate('main_window', 'Copy'))
+        self.action_copy_all.setText(_translate('main_window', 'Copy All from Visible Columns'))
         self.action_select_all.setText(_translate('main_window', 'Select All'))
         self.action_about.setText(_translate('main_window', 'About'))
         self.action_about_qt.setText(_translate('main_window', 'About Qt'))
