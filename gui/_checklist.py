@@ -45,6 +45,7 @@ class CheckList(QWidget):
         self._all.blockSignals(False)
 
     def onCheckAllToggled(self, new_state: Qt.CheckState):
+        self._all.setTristate(False)
         self._list.blockSignals(True)
         for r in range(self._list.count()):
             self._list.item(r).setCheckState(new_state)
