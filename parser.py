@@ -29,8 +29,9 @@ def _parse_with_struct(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str],
         titles: List[str] = list(map(lambda s: s.strip(b'\0').decode('ascii'),
                                      struct.unpack_from('<' + '32s' * (_CHANNELS_COUNT - 1),
                                                         file_handle.read((_CHANNELS_COUNT - 1) * 32))))
+        titles = list(filter(None, titles))
         file_handle.seek(0x3000)
-        data: List[List[float]] = [[] for _ in range(_CHANNELS_COUNT - 1)]
+        data: List[List[float]] = [[] for _ in range(len(titles))]
         while True:
             data_size_data: bytes = file_handle.read(double_size)
             if not data_size_data:
@@ -40,9 +41,9 @@ def _parse_with_struct(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str],
             if len(line_data) != data_size:
                 raise IOError('Corrupted or incomplete data found')
             count: int = len(line_data) // double_size
-            if count != _CHANNELS_COUNT - 1:
+            if count != len(titles):
                 raise RuntimeError(f'Do not know how to process {count} channels')
-            for index, item in enumerate(struct.unpack_from(f'<{_CHANNELS_COUNT - 1}d', line_data)):
+            for index, item in enumerate(struct.unpack_from(f'<{len(titles)}d', line_data)):
                 data[index].append(item)
         return titles, data
 
@@ -61,14 +62,15 @@ def _parse_with_numpy(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], 
     def _parse(file_handle: BinaryIO):
         file_handle.seek(0x1800 + 32)
         titles: List[str] = [file_handle.read(32).strip(b'\0').decode('ascii') for _ in range(_CHANNELS_COUNT - 1)]
+        titles = list(filter(None, titles))
         file_handle.seek(0x3000)
         dt = np.dtype(np.float64)
         dt = dt.newbyteorder('<')
         data: np.ndarray = np.frombuffer(file_handle.read(), dtype=dt)
-        if not (data.size / _CHANNELS_COUNT).is_integer():
-            data = data[:-(data.size % _CHANNELS_COUNT)]
+        if not (data.size / (len(titles) + 1)).is_integer():
+            data = data[:-(data.size % (len(titles) + 1))]
             # raise RuntimeError(f'Do not know how to process {data.size} numbers')
-        return titles, data.reshape((_CHANNELS_COUNT, -1), order='F')[1:]
+        return titles, data.reshape((len(titles) + 1, -1), order='F')[1:]
 
     if isinstance(filename, BinaryIO):
         return _parse(filename)
