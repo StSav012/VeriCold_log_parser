@@ -68,19 +68,22 @@ class DataModel(QAbstractTableModel):
     def columnCount(self, parent=None) -> int:
         return len(self._header)
 
+    def formatted_item(self, row: int, column: int) -> str:
+        value: np.float64 = self.item(row, column)
+        if self._header[column].endswith(('(s)', '(secs)')):
+            return datetime.fromtimestamp(value).isoformat()
+        if self._header[column].endswith('(K)'):
+            return str(np.around(value, decimals=3))
+        if self._header[column].endswith('(Bar)'):
+            return np.format_float_positional(value, precision=3 + int(-np.log10(np.abs(value))))
+        if value.is_integer():
+            return f'{value:.0f}'
+        return str(np.around(value, decimals=12))
+
     def data(self, index: QModelIndex, role: Qt.ItemDataRole = Qt.DisplayRole) -> Optional[str]:
         if index.isValid():
             if role == Qt.DisplayRole:
-                value: np.float64 = self.item(index.row(), index.column())
-                if self._header[index.column()].endswith(('(s)', '(secs)')):
-                    return datetime.fromtimestamp(value).isoformat()
-                if self._header[index.column()].endswith('(K)'):
-                    return str(np.around(value, decimals=3))
-                if self._header[index.column()].endswith('(Bar)'):
-                    return np.format_float_positional(value, precision=3 + int(-np.log10(np.abs(value))))
-                if value.is_integer():
-                    return f'{value:.0f}'
-                return str(np.around(value, decimals=12))
+                return self.formatted_item(index.row(), index.column())
         return None
 
     def item(self, row_index: int, column_index: int) -> np.float64:
@@ -143,6 +146,7 @@ class MainWindow(QMainWindow):
         self.action_preferences: QAction = QAction(self)
         self.action_quit: QAction = QAction(self)
         self.action_copy: QAction = QAction(self)
+        self.action_copy_all: QAction = QAction(self)
         self.action_select_all: QAction = QAction(self)
         self.action_about: QAction = QAction(self)
         self.action_about_qt: QAction = QAction(self)
@@ -151,7 +155,6 @@ class MainWindow(QMainWindow):
         self._opened_file_name: str = ''
         self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
-        self.preferences_dialog: Preferences = Preferences(self.settings, self)
         self._visible_columns: List[str] = []
 
         self.setupUi()
@@ -190,6 +193,8 @@ class MainWindow(QMainWindow):
         self.action_quit.setObjectName('action_quit')
         self.action_copy.setIcon(QIcon.fromTheme('edit-copy'))
         self.action_copy.setObjectName('action_copy')
+        self.action_copy_all.setIcon(QIcon.fromTheme('edit-copy'))
+        self.action_copy_all.setObjectName('action_copy')
         self.action_select_all.setIcon(QIcon.fromTheme('edit-select-all'))
         self.action_select_all.setObjectName('action_select_all')
         self.action_about.setIcon(QIcon.fromTheme('help-about'))
@@ -206,6 +211,7 @@ class MainWindow(QMainWindow):
         self.menu_file.addSeparator()
         self.menu_file.addAction(self.action_quit)
         self.menu_edit.addAction(self.action_copy)
+        self.menu_edit.addAction(self.action_copy_all)
         self.menu_edit.addAction(self.action_select_all)
         self.menu_about.addAction(self.action_about)
         self.menu_about.addAction(self.action_about_qt)
@@ -224,6 +230,7 @@ class MainWindow(QMainWindow):
         self.action_preferences.setShortcut('Ctrl+,')
         self.action_quit.setShortcuts(('Ctrl+Q', 'Ctrl+X'))
         self.action_copy.setShortcut('Ctrl+C')
+        self.action_copy_all.setShortcut('Ctrl+Shift+C')
         self.action_select_all.setShortcut('Ctrl+A')
         self.action_about.setShortcut('F1')
 
@@ -233,6 +240,7 @@ class MainWindow(QMainWindow):
         self.action_preferences.triggered.connect(self.on_action_preferences_triggered)
         self.action_quit.triggered.connect(self.on_action_quit_triggered)
         self.action_copy.triggered.connect(self.on_action_copy_triggered)
+        self.action_copy_all.triggered.connect(self.on_action_copy_all_triggered)
         self.action_select_all.triggered.connect(self.on_action_select_all_triggered)
         self.action_about.triggered.connect(self.on_action_about_triggered)
         self.action_about_qt.triggered.connect(self.on_action_about_qt_triggered)
@@ -312,41 +320,53 @@ class MainWindow(QMainWindow):
         self.settings.endGroup()
         self.settings.sync()
 
-    def stringify_selection_plain_text(self) -> str:
+    def stringify_selection_plain_text(self, whole_table: bool = False) -> str:
         """
-        Convert selected rows to string for copying as plain text
+        Convert selected cells to string for copying as plain text
         :return: the plain text representation of the selected table lines
         """
-        text: List[str] = []
+        if whole_table:
+            text_matrix: List[List[str]] = [[self.table_model.formatted_item(row, column)
+                                             for column in range(self.table_model.columnCount())
+                                             if self.settings.visible_columns[column]]
+                                            for row in range(self.table_model.rowCount(available_count=True))]
+        else:
+            si: QModelIndex
+            rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
+            cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
+            text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
+                                            for _ in range(len(rows))]
+            for si in self.table.selectedIndexes():
+                text_matrix[rows.index(si.row())][cols.index(si.column())] = self.table_model.data(si)
         row_texts: List[str]
-        si: QModelIndex
-        rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
-        cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
-        text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
-                                        for _ in range(len(rows))]
-        for si in self.table.selectedIndexes():
-            text_matrix[rows.index(si.row())][cols.index(si.column())] = self.table_model.data(si)
-        for row_texts in text_matrix:
-            text.append(self.settings.csv_separator.join(row_texts))
+        text: List[str] = [self.settings.csv_separator.join(row_texts) for row_texts in text_matrix]
         return self.settings.line_end.join(text)
 
-    def stringify_selection_html(self) -> str:
+    def stringify_selection_html(self, whole_table: bool = False) -> str:
         """
-        Convert selected rows to string for copying as rich text
+        Convert selected cells to string for copying as rich text
         :return: the rich text representation of the selected table lines
         """
-        text: List[str] = []
+        if whole_table:
+            text_matrix: List[List[str]] = [[('<td>' + self.table_model.formatted_item(row, column) + '</td>')
+                                             for column in range(self.table_model.columnCount())
+                                             if self.settings.visible_columns[column]]
+                                            for row in range(self.table_model.rowCount(available_count=True))]
+        else:
+            si: QModelIndex
+            rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
+            cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
+            text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
+                                            for _ in range(len(rows))]
+            for si in self.table.selectedIndexes():
+                text_matrix[rows.index(si.row())][cols.index(si.column())] = \
+                    '<td>' + self.table_model.data(si) + '</td>'
         row_texts: List[str]
-        si: QModelIndex
-        rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
-        cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
-        text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
-                                        for _ in range(len(rows))]
-        for si in self.table.selectedIndexes():
-            text_matrix[rows.index(si.row())][cols.index(si.column())] = '<td>' + self.table_model.data(si) + '</td>'
-        for row_texts in text_matrix:
-            text.append('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>' + self.settings.line_end)
-        return '<table>' + self.settings.line_end + ''.join(text) + '</table>'
+        text: List[str] = [('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>')
+                           for row_texts in text_matrix]
+        text.insert(0, '<table>')
+        text.append('</table>')
+        return self.settings.line_end.join(text)
 
     def load_file(self, file_name: str) -> bool:
         try:
@@ -358,6 +378,9 @@ class MainWindow(QMainWindow):
             self._opened_file_name = file_name
             self.table_model.set_data(data, titles)
             self.menu_view.clear()
+            self.settings.column_names = self.table_model.header
+            self.settings.visible_columns = [(not self._visible_columns or title in self._visible_columns)
+                                             for title in self.table_model.header]
             index: int
             title: str
             for index, title in enumerate(self.table_model.header):
@@ -485,6 +508,7 @@ class MainWindow(QMainWindow):
                 self._visible_columns.append(a.text())
             else:
                 self.table.hideColumn(i)
+        self.settings.visible_columns = [a.isChecked() for a in self.menu_view.actions()]
 
     def on_action_reload_triggered(self):
         try:
@@ -495,13 +519,35 @@ class MainWindow(QMainWindow):
             self.table_model.set_data(data, titles)
 
     def on_action_preferences_triggered(self):
-        self.preferences_dialog.exec()
+        preferences_dialog: Preferences = Preferences(self.settings, self)
+        preferences_dialog.exec()
+
+        title: str
+        visibility: bool
+        action: QAction
+        column: int
+        self._visible_columns = [title
+                                 for title, visibility in zip(self.settings.column_names, self.settings.visible_columns)
+                                 if visibility]
+        for column, (visibility, action) in enumerate(zip(self.settings.visible_columns, self.menu_view.actions())):
+            if action.isChecked() != visibility:
+                action.blockSignals(True)
+                action.setChecked(visibility)
+                action.blockSignals(False)
+            if visibility:
+                self.table.showColumn(column)
+            else:
+                self.table.hideColumn(column)
 
     def on_action_quit_triggered(self):
         self.close()
 
     def on_action_copy_triggered(self):
         copy_to_clipboard(self.stringify_selection_plain_text(), self.stringify_selection_html(), Qt.RichText)
+
+    def on_action_copy_all_triggered(self):
+        copy_to_clipboard(self.stringify_selection_plain_text(whole_table=True),
+                          self.stringify_selection_html(whole_table=True), Qt.RichText)
 
     def on_action_select_all_triggered(self):
         self.table.selectAll()
