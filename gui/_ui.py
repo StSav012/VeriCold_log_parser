@@ -23,7 +23,7 @@ from PyQt5.QtGui import QCloseEvent, QIcon
 from PyQt5.QtWidgets import QAction, QApplication, QDesktopWidget, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
     QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
 
-from parser import parse
+from log_parser import parse
 
 
 def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.TextFormat, str] = Qt.PlainText):
@@ -158,9 +158,9 @@ class MainWindow(QMainWindow):
         self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
 
-        self.setupUi()
+        self.setup_ui()
 
-    def setupUi(self):
+    def setup_ui(self):
         self.setObjectName('main_window')
         self.resize(640, 480)
         self.central_widget.setObjectName('central_widget')
@@ -352,10 +352,12 @@ class MainWindow(QMainWindow):
         return self.settings.line_end.join(text)
 
     def load_file(self, file_name: str) -> bool:
+        if not file_name:
+            return False
         try:
             titles, data = parse(file_name)
         except (IOError, RuntimeError) as ex:
-            self.status_bar.showMessage(' '.join(ex.args))
+            self.status_bar.showMessage(' '.join(repr(a) for a in ex.args))
             return False
         else:
             self._opened_file_name = file_name
