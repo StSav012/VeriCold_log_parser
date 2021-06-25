@@ -363,7 +363,10 @@ class MainWindow(QMainWindow):
             for index, title in enumerate(self.table_model.header):
                 action: QAction = self.menu_view.addAction(title)
                 action.setCheckable(True)
-                if self.settings.is_visible(title):
+                if (self.settings.is_visible(title)
+                        and (self.settings.show_all_zero_columns
+                             or not np.alltrue((self.table_model.all_data[index] == 0.0)
+                                               | np.isnan(self.table_model.all_data[index])))):
                     action.setChecked(True)
                     self.table.showColumn(index)
                 else:
@@ -478,7 +481,9 @@ class MainWindow(QMainWindow):
         a: QAction
         i: int
         for i, a in enumerate(self.menu_view.actions()):
-            if a.isChecked():
+            if a.isChecked() and (self.settings.show_all_zero_columns
+                                  or not np.alltrue((self.table_model.all_data[i] == 0.0)
+                                                    | np.isnan(self.table_model.all_data[i]))):
                 self.table.showColumn(i)
             else:
                 self.table.hideColumn(i)
@@ -505,7 +510,9 @@ class MainWindow(QMainWindow):
                 action.blockSignals(True)
                 action.setChecked(visibility)
                 action.blockSignals(False)
-            if visibility:
+            if visibility and (self.settings.show_all_zero_columns
+                               or not np.alltrue((self.table_model.all_data[column] == 0.0)
+                                                 | np.isnan(self.table_model.all_data[column]))):
                 self.table.showColumn(column)
             else:
                 self.table.hideColumn(column)

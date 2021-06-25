@@ -47,7 +47,8 @@ class Settings(QSettings):
                                    Dict[str, Tuple[List[str], List[str], str]]]]:
         return {
             'View': {
-                'Visible columns:': (self.check_items_names, self.check_items_values, 'All', 'visible_columns')
+                'Visible columns:': (self.check_items_names, self.check_items_values, 'All', 'visible_columns'),
+                'Show columns with all zeros': ('show_all_zero_columns', ),
             },
             'Export': {
                 'Line ending:': (self.LINE_ENDS, self._LINE_ENDS, 'line_end'),
@@ -89,6 +90,19 @@ class Settings(QSettings):
     def visible_columns(self, new_values: List[bool]) -> None:
         self.check_items_values = new_values[:]
         self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)
+
+    @property
+    def show_all_zero_columns(self) -> bool:
+        self.beginGroup('columns')
+        v: bool = self.value('showAllZeroColumns', False, bool)
+        self.endGroup()
+        return v
+
+    @show_all_zero_columns.setter
+    def show_all_zero_columns(self, new_value: bool) -> None:
+        self.beginGroup('columns')
+        self.setValue('showAllZeroColumns', new_value)
+        self.endGroup()
 
     @property
     def columns(self) -> Tuple[List[str], List[bool]]:
