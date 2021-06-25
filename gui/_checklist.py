@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Union
+from typing import Any, Union
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QCheckBox, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
@@ -8,10 +8,9 @@ __all__ = ['CheckList']
 
 
 class CheckList(QWidget):
-    checkStateChanged = pyqtSignal(list, name='checkStateChanged')
+    checkStateChanged: pyqtSignal = pyqtSignal(list, name='checkStateChanged')
 
-    def __init__(self, *args, **kwargs):
-        show_all: str = kwargs.pop('show_all', '')
+    def __init__(self, *args: Any, show_all: str = '', **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self._layout: QVBoxLayout = QVBoxLayout(self)
@@ -26,7 +25,7 @@ class CheckList(QWidget):
 
         self._list.itemChanged.connect(self.onListItemChanged)
 
-    def addItem(self, item: Union[str, QListWidgetItem], checked: Union[bool, Qt.CheckState] = Qt.Unchecked):
+    def addItem(self, item: Union[str, QListWidgetItem], checked: Union[bool, Qt.CheckState] = Qt.Unchecked) -> None:
         if not isinstance(item, QListWidgetItem):
             item = QListWidgetItem(self.tr(item), self._list)
         if not isinstance(checked, Qt.CheckState):
@@ -44,7 +43,8 @@ class CheckList(QWidget):
             self._all.setCheckState(Qt.PartiallyChecked)
         self._all.blockSignals(False)
 
-    def onCheckAllToggled(self, new_state: Qt.CheckState):
+    def onCheckAllToggled(self, new_state: Qt.CheckState) -> None:
+        r: int
         self._all.setTristate(False)
         self._list.blockSignals(True)
         for r in range(self._list.count()):
@@ -52,7 +52,8 @@ class CheckList(QWidget):
         self._list.blockSignals(False)
         self.checkStateChanged.emit([self._list.item(r).checkState() == Qt.Checked for r in range(self._list.count())])
 
-    def onListItemChanged(self, _: QListWidgetItem):
+    def onListItemChanged(self, _: QListWidgetItem) -> None:
+        r: int
         self._all.blockSignals(True)
         if all([self._list.item(r).checkState() == Qt.Checked for r in range(self._list.count())]):
             self._all.setCheckState(Qt.Checked)

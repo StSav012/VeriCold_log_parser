@@ -1,32 +1,21 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, Final, List, Optional, Union, cast
 
 import numpy as np
-
-from gui._preferences import Preferences
-from gui._settings import Settings
-
-try:
-    from typing import Final
-except ImportError:
-    class _Final:
-        def __getitem__(self, item):
-            return item
-
-
-    Final = _Final()
-
-from PyQt5.QtCore import QAbstractTableModel, QCoreApplication, QModelIndex, QRect, Qt
+from PyQt5.QtCore import QAbstractTableModel, QCoreApplication, QModelIndex, QObject, QRect, Qt
 from PyQt5.QtGui import QCloseEvent, QIcon
 from PyQt5.QtWidgets import QAction, QApplication, QDesktopWidget, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
     QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
 
+from gui._preferences import Preferences
+from gui._settings import Settings
 from log_parser import parse
 
 
-def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.TextFormat, str] = Qt.PlainText):
+def copy_to_clipboard(plain_text: str, rich_text: str = '',
+                      text_type: Union[Qt.TextFormat, str] = Qt.PlainText) -> None:
     from PyQt5.QtGui import QClipboard
     from PyQt5.QtCore import QMimeData
 
@@ -45,7 +34,7 @@ def copy_to_clipboard(plain_text: str, rich_text: str = '', text_type: Union[Qt.
 class DataModel(QAbstractTableModel):
     ROW_BATCH_COUNT: Final[int] = 96
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._data: np.ndarray = np.empty((0, 0))
         self._rows_loaded: int = self.ROW_BATCH_COUNT
@@ -60,12 +49,12 @@ class DataModel(QAbstractTableModel):
     def all_data(self) -> np.ndarray:
         return self._data[1:]
 
-    def rowCount(self, parent=None, *, available_count: bool = False) -> int:
+    def rowCount(self, parent: Optional[QObject] = None, *, available_count: bool = False) -> int:
         if available_count:
-            return self._data.shape[1]
-        return min(self._data.shape[1], self._rows_loaded)
+            return cast(int, self._data.shape[1])
+        return min(cast(int, self._data.shape[1]), self._rows_loaded)
 
-    def columnCount(self, parent=None) -> int:
+    def columnCount(self, parent: Optional[QObject] = None) -> int:
         return len(self._header)
 
     def formatted_item(self, row: int, column: int) -> str:
@@ -77,7 +66,7 @@ class DataModel(QAbstractTableModel):
         if self._header[column].endswith('(K)'):
             return str(np.around(value, decimals=3))
         if self._header[column].endswith('(Bar)'):
-            return np.format_float_positional(value, precision=3 + int(-np.log10(np.abs(value))))
+            return cast(str, np.format_float_positional(value, precision=3 + int(-np.log10(np.abs(value)))))
         if value.is_integer():
             return f'{value:.0f}'
         return str(np.around(value, decimals=12))
@@ -91,20 +80,22 @@ class DataModel(QAbstractTableModel):
     def item(self, row_index: int, column_index: int) -> np.float64:
         return self._data[column_index + 1, row_index]
 
-    def headerData(self, col, orientation, role: Qt.ItemDataRole = Qt.DisplayRole):
+    def headerData(self, col: int, orientation: Qt.Orientation,
+                   role: Qt.ItemDataRole = Qt.DisplayRole) -> Optional[str]:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self._header[col]
         if orientation == Qt.Vertical and role == Qt.DisplayRole and not np.isnan(self._data[0, col]):
             return f'{self._data[0, col]:.0f}'
         return None
 
-    def setHeaderData(self, section: int, orientation: Qt.Orientation, value, role: int = ...) -> bool:
+    def setHeaderData(self, section: int, orientation: Qt.Orientation,
+                      value: str, role: int = Qt.ItemDataRole()) -> bool:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole and 0 <= section < len(self._header):
             self._header[section] = value
             return True
         return False
 
-    def set_data(self, new_data: Union[List[List[float]], np.ndarray], new_header: Optional[List[str]] = None):
+    def set_data(self, new_data: Union[List[List[float]], np.ndarray], new_header: Optional[List[str]] = None) -> None:
         self.beginResetModel()
         self._data = np.array(new_data)
         good: np.ndarray = ~np.all(self._data == 0.0, axis=1)
@@ -114,10 +105,10 @@ class DataModel(QAbstractTableModel):
         self._rows_loaded = self.ROW_BATCH_COUNT
         self.endResetModel()
 
-    def canFetchMore(self, index: QModelIndex = QModelIndex()):
-        return self._data.shape[1] > self._rows_loaded
+    def canFetchMore(self, index: QModelIndex = QModelIndex()) -> bool:
+        return bool(self._data.shape[1] > self._rows_loaded)
 
-    def fetchMore(self, index: QModelIndex = QModelIndex()):
+    def fetchMore(self, index: QModelIndex = QModelIndex()) -> None:
         # FIXME: if the 0th column is hidden, no data gets fetched despite it is available according to `canFetchMore`
         #  For now, the only solution is to load more than one screen can display. If the table is scrolled, data loads.
         # https://sateeshkumarb.wordpress.com/2012/04/01/paginated-display-of-table-data-in-pyqt/
@@ -130,7 +121,7 @@ class DataModel(QAbstractTableModel):
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: Optional[QWidget] = None,
-                 flags: Union[Qt.WindowFlags, Qt.WindowType] = Qt.WindowFlags()):
+                 flags: Union[Qt.WindowFlags, Qt.WindowType] = Qt.WindowFlags()) -> None:
         super().__init__(parent=parent, flags=flags)
         self.central_widget: QWidget = QWidget(self)
         self.main_layout: QGridLayout = QGridLayout(self.central_widget)
@@ -160,7 +151,7 @@ class MainWindow(QMainWindow):
 
         self.setup_ui()
 
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         self.setObjectName('main_window')
         self.resize(640, 480)
         self.central_widget.setObjectName('central_widget')
@@ -250,7 +241,7 @@ class MainWindow(QMainWindow):
 
         self.load_settings()
 
-    def translate(self):
+    def translate(self) -> None:
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate('main_window', 'VeriCold data log viewer'))
         setattr(self, 'initial_window_title', self.windowTitle())
@@ -308,19 +299,20 @@ class MainWindow(QMainWindow):
         Convert selected cells to string for copying as plain text
         :return: the plain text representation of the selected table lines
         """
+        text_matrix: List[List[str]]
         if whole_table:
-            text_matrix: List[List[str]] = [[self.table_model.formatted_item(row, column)
-                                             for column in range(self.table_model.columnCount())
-                                             if self.settings.visible_columns[column]]
-                                            for row in range(self.table_model.rowCount(available_count=True))]
+            text_matrix = [[self.table_model.formatted_item(row, column)
+                            for column in range(self.table_model.columnCount())
+                            if self.settings.visible_columns[column]]
+                           for row in range(self.table_model.rowCount(available_count=True))]
         else:
             si: QModelIndex
             rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
             cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
-            text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
-                                            for _ in range(len(rows))]
+            text_matrix = [['' for _ in range(len(cols))]
+                           for _ in range(len(rows))]
             for si in self.table.selectedIndexes():
-                text_matrix[rows.index(si.row())][cols.index(si.column())] = self.table_model.data(si)
+                text_matrix[rows.index(si.row())][cols.index(si.column())] = self.table_model.data(si) or ''
         row_texts: List[str]
         text: List[str] = [self.settings.csv_separator.join(row_texts) for row_texts in text_matrix]
         return self.settings.line_end.join(text)
@@ -330,20 +322,21 @@ class MainWindow(QMainWindow):
         Convert selected cells to string for copying as rich text
         :return: the rich text representation of the selected table lines
         """
+        text_matrix: List[List[str]]
         if whole_table:
-            text_matrix: List[List[str]] = [[('<td>' + self.table_model.formatted_item(row, column) + '</td>')
-                                             for column in range(self.table_model.columnCount())
-                                             if self.settings.visible_columns[column]]
-                                            for row in range(self.table_model.rowCount(available_count=True))]
+            text_matrix = [[('<td>' + self.table_model.formatted_item(row, column) + '</td>')
+                            for column in range(self.table_model.columnCount())
+                            if self.settings.visible_columns[column]]
+                           for row in range(self.table_model.rowCount(available_count=True))]
         else:
             si: QModelIndex
             rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
             cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
-            text_matrix: List[List[str]] = [['' for _ in range(len(cols))]
-                                            for _ in range(len(rows))]
+            text_matrix = [['' for _ in range(len(cols))]
+                           for _ in range(len(rows))]
             for si in self.table.selectedIndexes():
                 text_matrix[rows.index(si.row())][cols.index(si.column())] = \
-                    '<td>' + self.table_model.data(si) + '</td>'
+                    '<td>' + (self.table_model.data(si) or '') + '</td>'
         row_texts: List[str]
         text: List[str] = [('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>')
                            for row_texts in text_matrix]
@@ -383,7 +376,7 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(self.tr('Ready'))
             return True
 
-    def save_csv(self, filename: str):
+    def save_csv(self, filename: str) -> bool:
         visible_column_indices: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
                                                        if self.settings.is_visible(title)])
         visible_column_names: List[str] = list(filter(self.settings.is_visible, self.table_model.header))
@@ -399,14 +392,14 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(self.tr('Saved to {0}').format(filename))
             return True
 
-    def save_xlsx(self, filename: str):
+    def save_xlsx(self, filename: str) -> bool:
         try:
             import xlsxwriter
             from xlsxwriter import Workbook
             from xlsxwriter.format import Format
             from xlsxwriter.worksheet import Worksheet
         except ImportError as ex:
-            self.status_bar.showMessage(' '.join(ex.args))
+            self.status_bar.showMessage(' '.join(repr(a) for a in ex.args))
             return False
 
         visible_column_indices: List[int] = [index for index, title in enumerate(self.table_model.header)
@@ -442,7 +435,7 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(self.tr('Saved to {0}').format(filename))
             return True
 
-    def on_action_open_triggered(self):
+    def on_action_open_triggered(self) -> None:
         new_file_name: str
         new_file_name, _ = QFileDialog.getOpenFileName(
             self, self.tr('Open'),
@@ -451,9 +444,9 @@ class MainWindow(QMainWindow):
         if self.load_file(new_file_name):
             self.setWindowTitle(f'{new_file_name} — {getattr(self, "initial_window_title")}')
 
-    def on_action_export_triggered(self):
+    def on_action_export_triggered(self) -> None:
         supported_formats: Dict[str, str] = {'.csv': f'{self.tr("Text with separators")} (*.csv)'}
-        supported_formats_callbacks: Dict[str, Callable] = {'.csv': self.save_csv}
+        supported_formats_callbacks: Dict[str, Callable[[str], bool]] = {'.csv': self.save_csv}
         try:
             import xlsxwriter
         except ImportError:
@@ -481,7 +474,7 @@ class MainWindow(QMainWindow):
         if new_file_name_ext in supported_formats_callbacks:
             supported_formats_callbacks[new_file_name_ext](new_file_name)
 
-    def on_action_column_triggered(self):
+    def on_action_column_triggered(self) -> None:
         a: QAction
         i: int
         for i, a in enumerate(self.menu_view.actions()):
@@ -491,7 +484,7 @@ class MainWindow(QMainWindow):
                 self.table.hideColumn(i)
         self.settings.visible_columns = [a.isChecked() for a in self.menu_view.actions()]
 
-    def on_action_reload_triggered(self):
+    def on_action_reload_triggered(self) -> None:
         try:
             titles, data = parse(self._opened_file_name)
         except (IOError, RuntimeError):
@@ -499,7 +492,7 @@ class MainWindow(QMainWindow):
         else:
             self.table_model.set_data(data, titles)
 
-    def on_action_preferences_triggered(self):
+    def on_action_preferences_triggered(self) -> None:
         preferences_dialog: Preferences = Preferences(self.settings, self)
         preferences_dialog.exec()
 
@@ -517,20 +510,20 @@ class MainWindow(QMainWindow):
             else:
                 self.table.hideColumn(column)
 
-    def on_action_quit_triggered(self):
+    def on_action_quit_triggered(self) -> None:
         self.close()
 
-    def on_action_copy_triggered(self):
+    def on_action_copy_triggered(self) -> None:
         copy_to_clipboard(self.stringify_selection_plain_text(), self.stringify_selection_html(), Qt.RichText)
 
-    def on_action_copy_all_triggered(self):
+    def on_action_copy_all_triggered(self) -> None:
         copy_to_clipboard(self.stringify_selection_plain_text(whole_table=True),
                           self.stringify_selection_html(whole_table=True), Qt.RichText)
 
-    def on_action_select_all_triggered(self):
+    def on_action_select_all_triggered(self) -> None:
         self.table.selectAll()
 
-    def on_action_about_triggered(self):
+    def on_action_about_triggered(self) -> None:
         QMessageBox.about(self,
                           self.tr("About VeriCold data log viewer"),
                           "<html><p>"
@@ -544,5 +537,5 @@ class MainWindow(QMainWindow):
                               "<a href='https://github.com/StSav012/VeriCold_log_parser'>GitHub</a>")
                           + "</p></html>")
 
-    def on_action_about_qt_triggered(self):
+    def on_action_about_qt_triggered(self) -> None:
         QMessageBox.aboutQt(self)

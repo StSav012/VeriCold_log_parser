@@ -1,19 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
-from typing import List, Set, Tuple, Type
+from typing import Any, Dict, Final, List, Set, Tuple, Union
 
 from PyQt5.QtCore import QSettings
-
-try:
-    from typing import Final
-except ImportError:
-    class _Final:
-        @staticmethod
-        def __getitem__(item: Type):
-            return item
-
-
-    Final = _Final()
 
 __all__ = ['Settings']
 
@@ -25,7 +14,7 @@ class Settings(QSettings):
     CSV_SEPARATORS: Final[List[str]] = [r'comma (,)', r'tab (\t)', r'semicolon (;)', r'space ( )']
     _CSV_SEPARATORS: Final[List[str]] = [',', '\t', ';', ' ']
 
-    def __init__(self, *args):
+    def __init__(self, *args: Any) -> None:
         super().__init__(*args)
         self.check_items_names: List[str] = []
         self.check_items_values: List[bool] = []
@@ -39,7 +28,7 @@ class Settings(QSettings):
         self.endArray()
         self.endGroup()
 
-    def sync(self):
+    def sync(self) -> None:
         self.beginGroup('columns')
         self.beginWriteArray('visible')
         i: int
@@ -53,7 +42,9 @@ class Settings(QSettings):
         super().sync()
 
     @property
-    def dialog(self):
+    def dialog(self) -> Dict[str,
+                             Union[Dict[str, Tuple[List[str], List[bool], str, str]],
+                                   Dict[str, Tuple[List[str], List[str], str]]]]:
         return {
             'View': {
                 'Visible columns:': (self.check_items_names, self.check_items_values, 'All', 'visible_columns')
@@ -72,7 +63,7 @@ class Settings(QSettings):
         return self._LINE_ENDS[v]
 
     @line_end.setter
-    def line_end(self, new_value: str):
+    def line_end(self, new_value: str) -> None:
         self.beginGroup('export')
         self.setValue('lineEnd', self._LINE_ENDS.index(new_value))
         self.endGroup()
@@ -85,7 +76,7 @@ class Settings(QSettings):
         return self._CSV_SEPARATORS[v]
 
     @csv_separator.setter
-    def csv_separator(self, new_value: str):
+    def csv_separator(self, new_value: str) -> None:
         self.beginGroup('export')
         self.setValue('csvSeparator', self._CSV_SEPARATORS.index(new_value))
         self.endGroup()
@@ -95,7 +86,7 @@ class Settings(QSettings):
         return self.check_items_values
 
     @visible_columns.setter
-    def visible_columns(self, new_values: List[bool]):
+    def visible_columns(self, new_values: List[bool]) -> None:
         self.check_items_values = new_values[:]
         self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)
 
@@ -104,7 +95,7 @@ class Settings(QSettings):
         return self.check_items_names, self.check_items_values
 
     @columns.setter
-    def columns(self, new: Tuple[List[str], List[bool]]):
+    def columns(self, new: Tuple[List[str], List[bool]]) -> None:
         self.check_items_names = new[0][:]
         self.check_items_values = new[1][:]
         self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)

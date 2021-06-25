@@ -1,16 +1,6 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
-from typing import BinaryIO, List, Tuple, Union
-
-try:
-    from typing import Final
-except ImportError:
-    class _Final:
-        def __getitem__(self, item):
-            return item
-
-
-    Final = _Final()
+from typing import BinaryIO, Final, List, Tuple, Union
 
 try:
     import numpy as np
@@ -24,7 +14,7 @@ _MAX_CHANNELS_COUNT: Final[int] = 52
 
 
 def _parse_with_struct(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], List[List[float]]]:
-    def _parse(file_handle: BinaryIO):
+    def _parse(file_handle: BinaryIO) -> Tuple[List[str], List[List[float]]]:
         file_handle.seek(0x1800 + 32)
         titles: List[str] = list(map(lambda s: s.strip(b'\0').decode('ascii'),
                                      struct.unpack_from('<' + '32s' * (_MAX_CHANNELS_COUNT - 1),
@@ -59,7 +49,7 @@ def _parse_with_numpy(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], 
     if np is None:
         raise ImportError('Module `numpy` is not loaded')
 
-    def _parse(file_handle: BinaryIO):
+    def _parse(file_handle: BinaryIO) -> Tuple[List[str], np.ndarray]:
         file_handle.seek(0x1800 + 32)
         titles: List[str] = [file_handle.read(32).strip(b'\0').decode('ascii') for _ in range(_MAX_CHANNELS_COUNT - 1)]
         titles = list(filter(None, titles))
