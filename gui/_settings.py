@@ -6,6 +6,8 @@ from PyQt5.QtCore import QSettings
 
 __all__ = ['Settings']
 
+from PyQt5.QtGui import QColor
+
 
 class Settings(QSettings):
     """ convenient internal representation of the application settings """
@@ -28,6 +30,15 @@ class Settings(QSettings):
         self.endArray()
         self.endGroup()
 
+        self.line_colors: Dict[str, QColor] = dict()
+
+        self.beginGroup('plot')
+        key: str
+        for key in self.allKeys():
+            if key.endswith(' color'):
+                self.line_colors[key[:-6]] = self.value(key)
+        self.endGroup()
+
     def sync(self) -> None:
         self.beginGroup('columns')
         self.beginWriteArray('visible')
@@ -37,6 +48,13 @@ class Settings(QSettings):
             self.setArrayIndex(i)
             self.setValue('name', n)
         self.endArray()
+        self.endGroup()
+
+        self.beginGroup('plot')
+        key: int
+        value: QColor
+        for key, value in self.line_colors.items():
+            self.setValue(f'{key} color', value)
         self.endGroup()
 
         super().sync()

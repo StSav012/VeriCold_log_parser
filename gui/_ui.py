@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QAction, QApplication, QDesktopWidget, QFileDialog, 
     QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
 
 from gui._data_model import DataModel
+from gui._plot import Plot
 from gui._preferences import Preferences
 from gui._settings import Settings
 from log_parser import parse
@@ -45,6 +46,7 @@ class MainWindow(QMainWindow):
         self.menu_file: QMenu = QMenu(self.menu_bar)
         self.menu_edit: QMenu = QMenu(self.menu_bar)
         self.menu_view: QMenu = QMenu(self.menu_bar)
+        self.menu_plot: QMenu = QMenu(self.menu_bar)
         self.menu_about: QMenu = QMenu(self.menu_bar)
         self.action_open: QAction = QAction(self)
         self.action_export: QAction = QAction(self)
@@ -54,6 +56,7 @@ class MainWindow(QMainWindow):
         self.action_copy: QAction = QAction(self)
         self.action_copy_all: QAction = QAction(self)
         self.action_select_all: QAction = QAction(self)
+        self.action_show_plot: QAction = QAction(self)
         self.action_about: QAction = QAction(self)
         self.action_about_qt: QAction = QAction(self)
         self.status_bar: QStatusBar = QStatusBar(self)
@@ -79,9 +82,10 @@ class MainWindow(QMainWindow):
         self.menu_bar.setGeometry(QRect(0, 0, 800, 29))
         self.menu_bar.setObjectName('menu_bar')
         self.menu_file.setObjectName('menu_file')
-        self.menu_view.setObjectName('menu_view')
-        self.menu_about.setObjectName('menu_about')
         self.menu_edit.setObjectName('menu_edit')
+        self.menu_view.setObjectName('menu_view')
+        self.menu_plot.setObjectName('menu_plot')
+        self.menu_about.setObjectName('menu_about')
         self.setMenuBar(self.menu_bar)
         self.status_bar.setObjectName('status_bar')
         self.setStatusBar(self.status_bar)
@@ -102,6 +106,8 @@ class MainWindow(QMainWindow):
         self.action_copy_all.setObjectName('action_copy')
         self.action_select_all.setIcon(QIcon.fromTheme('edit-select-all'))
         self.action_select_all.setObjectName('action_select_all')
+        self.action_show_plot.setMenuRole(QAction.ApplicationSpecificRole)
+        self.action_show_plot.setObjectName('action_show_about')
         self.action_about.setIcon(QIcon.fromTheme('help-about'))
         self.action_about.setMenuRole(QAction.AboutRole)
         self.action_about.setObjectName('action_about')
@@ -118,14 +124,17 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(self.action_copy)
         self.menu_edit.addAction(self.action_copy_all)
         self.menu_edit.addAction(self.action_select_all)
+        self.menu_plot.addAction(self.action_show_plot)
         self.menu_about.addAction(self.action_about)
         self.menu_about.addAction(self.action_about_qt)
         self.menu_bar.addAction(self.menu_file.menuAction())
         self.menu_bar.addAction(self.menu_edit.menuAction())
         self.menu_bar.addAction(self.menu_view.menuAction())
+        self.menu_bar.addAction(self.menu_plot.menuAction())
         self.menu_bar.addAction(self.menu_about.menuAction())
 
         self.menu_view.setEnabled(False)
+        self.menu_plot.setEnabled(False)
         self.action_export.setEnabled(False)
         self.action_reload.setEnabled(False)
 
@@ -147,6 +156,7 @@ class MainWindow(QMainWindow):
         self.action_copy.triggered.connect(self.on_action_copy_triggered)
         self.action_copy_all.triggered.connect(self.on_action_copy_all_triggered)
         self.action_select_all.triggered.connect(self.on_action_select_all_triggered)
+        self.action_show_plot.triggered.connect(self.on_action_show_plot_triggered)
         self.action_about.triggered.connect(self.on_action_about_triggered)
         self.action_about_qt.triggered.connect(self.on_action_about_qt_triggered)
 
@@ -159,9 +169,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(_translate('main_window', 'VeriCold data log viewer'))
         setattr(self, 'initial_window_title', self.windowTitle())
         self.menu_file.setTitle(_translate('main_window', 'File'))
-        self.menu_view.setTitle(_translate('main_window', 'View'))
-        self.menu_about.setTitle(_translate('main_window', 'About'))
         self.menu_edit.setTitle(_translate('main_window', 'Edit'))
+        self.menu_view.setTitle(_translate('main_window', 'View'))
+        self.menu_plot.setTitle(_translate('main_window', 'Plot'))
+        self.menu_about.setTitle(_translate('main_window', 'About'))
         self.action_open.setText(_translate('main_window', 'Open...'))
         self.action_export.setText(_translate('main_window', 'Export...'))
         self.action_reload.setText(_translate('main_window', 'Reload'))
@@ -170,6 +181,7 @@ class MainWindow(QMainWindow):
         self.action_copy.setText(_translate('main_window', 'Copy'))
         self.action_copy_all.setText(_translate('main_window', 'Copy All from Visible Columns'))
         self.action_select_all.setText(_translate('main_window', 'Select All'))
+        self.action_show_plot.setText(_translate('main_window', 'Show'))
         self.action_about.setText(_translate('main_window', 'About'))
         self.action_about_qt.setText(_translate('main_window', 'About Qt'))
 
@@ -187,10 +199,10 @@ class MainWindow(QMainWindow):
         desktop: QDesktopWidget = QApplication.desktop()
         self.move(round(0.5 * (desktop.width() - self.size().width())),
                   round(0.5 * (desktop.height() - self.size().height())))  # Fallback: Center the window
-        window_settings = self.settings.value('geometry')
+        window_settings: bytes = self.settings.value('geometry')
         if window_settings is not None:
             self.restoreGeometry(window_settings)
-        window_settings = self.settings.value('state')
+        window_settings: bytes = self.settings.value('state')
         if window_settings is not None:
             self.restoreState(window_settings)
         self.settings.endGroup()
@@ -287,6 +299,7 @@ class MainWindow(QMainWindow):
                     self.table.hideColumn(index)
                 action.triggered.connect(self.on_action_column_triggered)
             self.menu_view.setEnabled(True)
+            self.menu_plot.setEnabled(True)
             self.action_export.setEnabled(True)
             self.action_reload.setEnabled(True)
             self.status_bar.showMessage(self.tr('Ready'))
@@ -442,6 +455,10 @@ class MainWindow(QMainWindow):
 
     def on_action_select_all_triggered(self) -> None:
         self.table.selectAll()
+
+    def on_action_show_plot_triggered(self) -> None:
+        plot: Plot = Plot(self.settings, self.table_model, self)
+        plot.exec()
 
     def on_action_about_triggered(self) -> None:
         QMessageBox.about(self,
