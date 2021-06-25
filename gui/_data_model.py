@@ -36,7 +36,7 @@ class DataModel(QAbstractTableModel):
         value: np.float64 = self.item(row, column)
         if np.isnan(value):
             return ''
-        if self._header[column].endswith(('(s)', '(secs)')):
+        if self._header[column].endswith(('(s)', '(sec)', '(secs)')):
             return datetime.fromtimestamp(value).isoformat()
         if self._header[column].endswith('(K)'):
             return str(np.around(value, decimals=3))
