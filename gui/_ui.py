@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+from base64 import b64encode
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
-from PyQt5.QtCore import QCoreApplication, QModelIndex, QRect, Qt
-from PyQt5.QtGui import QCloseEvent, QIcon
+from PyQt5.QtCore import QByteArray, QCoreApplication, QModelIndex, QRect, Qt
+from PyQt5.QtGui import QCloseEvent, QIcon, QPixmap
 from PyQt5.QtWidgets import QAction, QApplication, QDesktopWidget, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
     QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
 
@@ -68,6 +69,23 @@ class MainWindow(QMainWindow):
         self.setup_ui()
 
     def setup_ui(self) -> None:
+        # https://ru.stackoverflow.com/a/1032610
+        window_icon: QPixmap = QPixmap()
+        window_icon.loadFromData(QByteArray.fromBase64(b64encode(b'''\
+                    <svg version="1.1" viewBox="0 0 135 135" xmlns="http://www.w3.org/2000/svg">\
+                    <path d="m0 0h135v135h-135v-135" fill="#282e70"/>\
+                    <path d="m23 51c3.4-8.7 9.4-16 17-22s17-8.2 26-8.2c9.3 0 19 2.9 26 8.2 7.7 5.3 14 13 17 22 4.1 11 \
+                    4.1 23 0 33-3.4 8.7-9.4 16-17 22-7.7 5.3-17 8.2-26 8.2-9.3 0-19-2.9-26-8.2s-14-13-17-22" \
+                    fill="none" stroke="#fff" stroke-linecap="round" stroke-width="19"/>\
+                    <path d="m50 31c-.58-1.1 6.3-7.5 21-7.8 6.5-.15 14 1.3 22 5.7 6.3 3.6 12 9.1 16 16 3.8 6.6 6 14 \
+                    6.1 23v4e-6c-.003 8.2-2.3 16-6.1 23-4.2 7.3-10 13-16 16-7.7 4.4-16 5.8-22 \
+                    5.7l-5e-6-1e-5c-14-.33-21-6.7-21-7.8.58-1.1 8.3 2.5 20 1.2 0-1e-5 4e-6-1e-5 \
+                    4e-6-1e-5 5.5-.62 12-2.5 18-6.5 4.9-3.2 9.4-7.9 13-14 2.8-5.2 4.5-11 \
+                    4.5-18v-2e-6c.003-6.4-1.7-13-4.5-18-3.1-5.8-7.7-11-13-14-5.9-4-12-5.8-18-6.5-12-1.4-20 \
+                    2.3-20 1.2z" fill="#282e70"/></svg>\
+                    ''')), 'SVG')
+        self.setWindowIcon(QIcon(QPixmap(window_icon)))
+
         self.setObjectName('main_window')
         self.resize(640, 480)
         self.central_widget.setObjectName('central_widget')
