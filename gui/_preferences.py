@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 from PyQt5.QtWidgets import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGroupBox, \
     QSpinBox, QVBoxLayout, QWidget
 
 from gui._checklist import CheckList
+from gui._open_file_path_entry import OpenFilePathEntry
 from gui._settings import Settings
 
 __all__ = ['Preferences']
@@ -27,15 +29,26 @@ class Preferences(QDialog):
         check_box: QCheckBox
         spin_box: Union[QSpinBox, QDoubleSpinBox]
         check_list: CheckList
+        open_file_path_entry: OpenFilePathEntry
         key: str
-        value: Union[Dict[str, Tuple[List[str], List[bool], str, str]],
-                     Dict[str, Tuple[List[str], List[str], str]]]
+        value: Union[
+            Dict[str, Tuple[str]],
+            Dict[str, Tuple[Path]],
+            Dict[str, Tuple[Sequence[str], str]],
+            Dict[str, Tuple[Sequence[str], Sequence[bool], str, str]],
+            Dict[str, Tuple[Sequence[str], Sequence[str], str]],
+        ]
         for key, value in self.settings.dialog.items():
             if isinstance(value, dict):
                 box: QGroupBox = QGroupBox(key, self)
                 box_layout: QFormLayout = QFormLayout(box)
                 key2: str
-                value2: Union[Tuple[List[str], List[bool], str, str], Tuple[List[str], List[str], str]]
+                value2: Union[Tuple[str],
+                              Tuple[Path],
+                              Tuple[Sequence[str], str],
+                              Tuple[Sequence[str], Sequence[bool], str, str],
+                              Tuple[Sequence[str], Sequence[str], str],
+                              ]
                 value3: Sequence[str]
                 value3a: Union[Sequence[str], slice]
                 value3b: Union[Sequence[Any], Tuple[str]]
@@ -45,12 +58,20 @@ class Preferences(QDialog):
                 for key2, value2 in value.items():
                     if isinstance(value2, tuple) and isinstance(value2[-1], str) and value2[-1]:
                         if len(value2) == 1:
-                            check_box = QCheckBox(self.tr(key2), box)
-                            setattr(check_box, 'callback', value2[-1])
-                            check_box.setChecked(getattr(self.settings, value2[-1]))
-                            check_box.toggled.connect(
-                                lambda x: setattr(self.settings, getattr(self.sender(), 'callback'), x))
-                            box_layout.addWidget(check_box)
+                            if isinstance(getattr(self.settings, value2[-1]), bool):
+                                check_box = QCheckBox(self.tr(key2), box)
+                                setattr(check_box, 'callback', value2[-1])
+                                check_box.setChecked(getattr(self.settings, value2[-1]))
+                                check_box.toggled.connect(
+                                    lambda x: setattr(self.settings, getattr(self.sender(), 'callback'), x))
+                                box_layout.addWidget(check_box)
+                            elif isinstance(getattr(self.settings, value2[-1]), (Path, type(None))):
+                                open_file_path_entry = OpenFilePathEntry(getattr(self.settings, value2[-1]), box)
+                                setattr(open_file_path_entry, 'callback', value2[-1])
+                                open_file_path_entry.changed.connect(
+                                    lambda x: setattr(self.settings, getattr(self.sender(), 'callback'), x))
+                                box_layout.addRow(key2, open_file_path_entry)
+                            # no else
                         elif len(value2) == 2:
                             value3 = value2[0]
                             if isinstance(value3, Sequence):

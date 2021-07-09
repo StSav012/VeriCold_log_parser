@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
-from PyQt5.QtCore import QByteArray, QCoreApplication, QModelIndex, QRect, Qt
-from PyQt5.QtGui import QCloseEvent, QIcon, QPixmap
-from PyQt5.QtWidgets import QAction, QApplication, QDesktopWidget, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
+from PyQt5.QtCore import QByteArray, QCoreApplication, QModelIndex, QPoint, QRect, QTranslator, Qt
+from PyQt5.QtGui import QCloseEvent, QIcon, QPixmap, QScreen
+from PyQt5.QtWidgets import QAction, QApplication, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
     QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
 
 from gui._data_model import DataModel
@@ -35,7 +35,8 @@ def copy_to_clipboard(plain_text: str, rich_text: str = '',
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, parent: Optional[QWidget] = None,
+    def __init__(self, application: Optional[QApplication] = None,
+                 parent: Optional[QWidget] = None,
                  flags: Union[Qt.WindowFlags, Qt.WindowType] = Qt.WindowFlags()) -> None:
         super().__init__(parent=parent, flags=flags)
         self.central_widget: QWidget = QWidget(self)
@@ -65,6 +66,10 @@ class MainWindow(QMainWindow):
         self._opened_file_name: str = ''
         self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
+        if application is not None and self.settings.translation_path is not None:
+            translator: QTranslator = QTranslator(self)
+            translator.load(str(self.settings.translation_path))
+            application.installTranslator(translator)
 
         self.setup_ui()
 
@@ -214,15 +219,15 @@ class MainWindow(QMainWindow):
         self.settings.endGroup()
 
         self.settings.beginGroup('window')
-        desktop: QDesktopWidget = QApplication.desktop()
-        self.move(round(0.5 * (desktop.width() - self.size().width())),
-                  round(0.5 * (desktop.height() - self.size().height())))  # Fallback: Center the window
-        window_settings: bytes = self.settings.value('geometry')
-        if window_settings is not None:
-            self.restoreGeometry(window_settings)
-        window_settings: bytes = self.settings.value('state')
-        if window_settings is not None:
-            self.restoreState(window_settings)
+        # Fallback: Center the window
+        desktop: QScreen = QApplication.screens()[0]
+        window_frame: QRect = self.frameGeometry()
+        desktop_center: QPoint = desktop.availableGeometry().center()
+        window_frame.moveCenter(desktop_center)
+        self.move(window_frame.topLeft())
+
+        self.restoreGeometry(self.settings.value('geometry', QByteArray()))
+        self.restoreState(self.settings.value('state', QByteArray()))
         self.settings.endGroup()
 
     def save_settings(self) -> None:

@@ -65,6 +65,9 @@ class Plot(QDialog):
         self._mouse_moved_signal_proxy: pg.SignalProxy = pg.SignalProxy(plot.scene().sigMouseMoved,
                                                                         rateLimit=10, slot=on_mouse_moved)
 
+        header: str
+        column: np.ndarray
+        visibility: bool
         self.lines: List[pg.PlotDataItem] = []
         self.color_buttons: List[pg.ColorButton] = []
         visible_columns_count: int = 0
@@ -83,9 +86,6 @@ class Plot(QDialog):
             self.lines[index].setPen(sender.color())
             self.settings.line_colors[visible_headers[index]] = sender.color()
 
-        header: str
-        column: np.ndarray
-        visibility: bool
         for header, column, visibility in zip(data_model.header, data_model.all_data, self.settings.check_items_values):
             if not (visibility and (self.settings.show_all_zero_columns
                                     or not np.alltrue((column == 0.0) | np.isnan(column)))) \

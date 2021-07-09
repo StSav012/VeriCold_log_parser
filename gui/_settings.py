@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
-from typing import Any, Dict, Final, List, Set, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, Final, List, Optional, Sequence, Set, Tuple, Union
 
 from PyQt5.QtCore import QSettings
 
@@ -61,16 +62,23 @@ class Settings(QSettings):
 
     @property
     def dialog(self) -> Dict[str,
-                             Union[Dict[str, Tuple[List[str], List[bool], str, str]],
-                                   Dict[str, Tuple[List[str], List[str], str]]]]:
+                             Union[
+                                 Dict[str, Tuple[str]],
+                                 Dict[str, Tuple[Path]],
+                                 Dict[str, Tuple[Sequence[str], str]],
+                                 Dict[str, Tuple[Sequence[str], Sequence[bool], str, str]],
+                                 Dict[str, Tuple[Sequence[str], Sequence[str], str]],
+                             ]]:
         return {
-            'View': {
-                'Visible columns:': (self.check_items_names, self.check_items_values, 'All', 'visible_columns'),
-                'Show columns with all zeros': ('show_all_zero_columns', ),
+            self.tr('View'): {
+                self.tr('Visible columns:'): (self.check_items_names, self.check_items_values,
+                                              'All', 'visible_columns'),
+                self.tr('Show columns with all zeros'): ('show_all_zero_columns', ),
+                self.tr('Translation file:'): ('translation_path', ),
             },
-            'Export': {
-                'Line ending:': (self.LINE_ENDS, self._LINE_ENDS, 'line_end'),
-                'CSV separator:': (self.CSV_SEPARATORS, self._CSV_SEPARATORS, 'csv_separator'),
+            self.tr('Export'): {
+                self.tr('Line ending:'): (self.LINE_ENDS, self._LINE_ENDS, 'line_end'),
+                self.tr('CSV separator:'): (self.CSV_SEPARATORS, self._CSV_SEPARATORS, 'csv_separator'),
             }
         }
 
@@ -134,3 +142,16 @@ class Settings(QSettings):
 
     def is_visible(self, title: str) -> bool:
         return not self._visible_column_names or title in self._visible_column_names
+
+    @property
+    def translation_path(self) -> Optional[Path]:
+        self.beginGroup('translation')
+        v: str = self.value('filePath', '', str)
+        self.endGroup()
+        return Path(v) if v else None
+
+    @translation_path.setter
+    def translation_path(self, new_value: Optional[Path]) -> None:
+        self.beginGroup('translation')
+        self.setValue('filePath', str(new_value) if new_value is not None else '')
+        self.endGroup()
