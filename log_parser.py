@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
-from typing import BinaryIO, Final, List, Tuple, Union
+from typing import BinaryIO, Final, List, Optional, Tuple, Union
 
 try:
     import numpy as np
@@ -58,21 +58,14 @@ def _parse_with_numpy(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], 
         dt: np.dtype = np.dtype(np.float64).newbyteorder('<')
         data: np.ndarray = np.frombuffer(file_handle.read(), dtype=dt)
         i: int = 0
+        data_item_size: Optional[int] = None
         while i < data.size:
-            if data[i] / dt.itemsize > len(titles) + 1:
-                data = data[:i]
-                break
-                # raise RuntimeError('Inconsistent data: some records are faulty')
-            if data[i] / dt.itemsize < len(titles) + 1:
-                data = np.concatenate((data[:i + round(data[i] / dt.itemsize)],
-                                       [np.nan] * round(len(titles) + 1 - data[i] / dt.itemsize),
-                                       data[i + round(data[i] / dt.itemsize):]))
-                data[i] = dt.itemsize * (len(titles) + 1)
-            i += len(titles) + 1
-        if not (data.size / (len(titles) + 1)).is_integer():
-            # data = data[:-(data.size % (len(titles) + 1))]
-            raise RuntimeError(f'Do not know how to process {data.size} numbers')
-        return titles, data.reshape((len(titles) + 1, -1), order='F')[1:]
+            if data_item_size is None:
+                data_item_size = int(round(data[i] / dt.itemsize))
+            elif int(round(data[i] / dt.itemsize)) != data_item_size:
+                raise RuntimeError('Inconsistent data: some records are faulty')
+            i += int(round(data[i] / dt.itemsize))
+        return titles, data.reshape((data_item_size, -1), order='F')[1:(len(titles) + 1)]
 
     if isinstance(filename, BinaryIO):
         return _parse(filename)
