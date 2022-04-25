@@ -4,9 +4,7 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtCore import QPointF, QRectF
-from PyQt5.QtGui import QCloseEvent, QColor
-from PyQt5.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QWidget
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 
 from gui._data_model import DataModel
 from gui._settings import Settings
@@ -14,8 +12,9 @@ from gui._settings import Settings
 __all__ = ['Plot']
 
 
-class Plot(QDialog):
-    def __init__(self, settings: Settings, data_model: DataModel, parent: Optional[QWidget] = None, *args: Any) -> None:
+class Plot(QtWidgets.QDialog):
+    def __init__(self, settings: Settings, data_model: DataModel, parent: Optional[QtWidgets.QWidget] = None,
+                 *args: Any) -> None:
         super().__init__(parent, *args)
 
         self.setObjectName('plot_dialog')
@@ -26,11 +25,11 @@ class Plot(QDialog):
         if parent is not None:
             self.setWindowIcon(parent.windowIcon())
 
-        layout: QHBoxLayout = QHBoxLayout(self)
+        layout: QtWidgets.QHBoxLayout = QtWidgets.QHBoxLayout(self)
 
-        controls_panel: QWidget = QWidget(self)
+        controls_panel: QtWidgets.QWidget = QtWidgets.QWidget(self)
         layout.addWidget(controls_panel)
-        controls_layout: QFormLayout = QFormLayout(controls_panel)
+        controls_layout: QtWidgets.QFormLayout = QtWidgets.QFormLayout(controls_panel)
 
         plot: pg.PlotWidget = pg.PlotWidget(self)
         canvas: pg.PlotItem = plot.getPlotItem()
@@ -40,14 +39,14 @@ class Plot(QDialog):
         cursor_balloon: pg.TextItem = pg.TextItem()
         plot.addItem(cursor_balloon, True)  # ignore bounds
 
-        def on_mouse_moved(event: Tuple[QPointF]) -> None:
-            pos: QPointF = event[0]
+        def on_mouse_moved(event: Tuple[QtCore.QPointF]) -> None:
+            pos: QtCore.QPointF = event[0]
             if plot.sceneBoundingRect().contains(pos):
-                point: QPointF = canvas.vb.mapSceneToView(pos)
+                point: QtCore.QPointF = canvas.vb.mapSceneToView(pos)
                 if plot.visibleRange().contains(point):
                     cursor_balloon.setPos(point)
                     cursor_balloon.setText(f'{datetime.fromtimestamp(round(point.x()))}\n{point.y()}')
-                    balloon_border: QRectF = cursor_balloon.boundingRect()
+                    balloon_border: QtCore.QRectF = cursor_balloon.boundingRect()
                     sx: float
                     sy: float
                     sx, sy = canvas.vb.viewPixelSize()
@@ -91,9 +90,9 @@ class Plot(QDialog):
                                     or not np.alltrue((column == 0.0) | np.isnan(column)))) \
                     or header.endswith(('(s)', '(sec)', '(secs)')):
                 continue
-            color: QColor = self.settings.line_colors.get(header,
-                                                          pg.intColor(len(self.lines),
-                                                                      hues=visible_columns_count))
+            color: QtGui.QColor = self.settings.line_colors.get(header,
+                                                                pg.intColor(len(self.lines),
+                                                                            hues=visible_columns_count))
             self.color_buttons.append(pg.ColorButton(controls_panel, color))
             controls_layout.addRow(header, self.color_buttons[-1])
             self.lines.append(canvas.plot(np.column_stack((data_model.all_data[0], column)), name=header, pen=color))
@@ -105,7 +104,7 @@ class Plot(QDialog):
             self.restoreGeometry(window_settings)
         self.settings.endGroup()
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         self.settings.beginGroup('plot')
         self.settings.setValue('geometry', self.saveGeometry())
         self.settings.endGroup()

@@ -6,30 +6,28 @@ from pathlib import Path
 from typing import Optional
 
 import pyqtgraph as pg  # type: ignore
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QPushButton, QWidget
+from pyqtgraph.Qt import QtCore, QtWidgets
 
 __all__ = ['OpenFilePathEntry']
 
 
-class OpenFilePathEntry(QWidget):
-    changed: pyqtSignal = pyqtSignal(Path, name='changed')
+class OpenFilePathEntry(QtWidgets.QWidget):
+    changed: QtCore.Signal = QtCore.Signal(Path, name='changed')
 
-    def __init__(self, initial_file_path: Optional[Path] = None, parent: Optional[QWidget] = None):
+    def __init__(self, initial_file_path: Optional[Path] = None, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
 
         self._path: Optional[Path] = None
 
-        self.setLayout(QHBoxLayout())
+        self.setLayout(QtWidgets.QHBoxLayout())
 
-        self.text: QLabel = QLabel(self)
+        self.text: QtWidgets.QLabel = QtWidgets.QLabel(self)
         self.path = initial_file_path
-        self.text.setTextInteractionFlags(Qt.LinksAccessibleByKeyboard | Qt.LinksAccessibleByMouse
-                                          | Qt.TextBrowserInteraction
-                                          | Qt.TextSelectableByKeyboard | Qt.TextSelectableByMouse)
+        self.text.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextBrowserInteraction
+                                          | QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         self.layout().addWidget(self.text)
 
-        self.browse_button: QPushButton = QPushButton(self.tr('Browse...'), self)
+        self.browse_button: QtWidgets.QPushButton = QtWidgets.QPushButton(self.tr('Browse...'), self)
         self.browse_button.clicked.connect(self.on_browse_button_clicked)
         self.layout().addWidget(self.browse_button)
 
@@ -52,7 +50,7 @@ class OpenFilePathEntry(QWidget):
 
     def on_browse_button_clicked(self) -> None:
         new_file_name: str
-        new_file_name, _ = QFileDialog.getOpenFileName(
+        new_file_name, _ = pg.FileDialog.getOpenFileName(
             self, self.tr('Open'),
             str(self._path or ''),
             self.tr('Translations') + ' (*.qm)')

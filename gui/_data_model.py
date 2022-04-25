@@ -3,15 +3,16 @@ from datetime import datetime
 from typing import Final, List, Optional, Union, cast
 
 import numpy as np
-from PyQt5.QtCore import QAbstractTableModel, QModelIndex, QObject, Qt
+from numpy.typing import NDArray
+from pyqtgraph.Qt import QtCore
 
 
-class DataModel(QAbstractTableModel):
+class DataModel(QtCore.QAbstractTableModel):
     ROW_BATCH_COUNT: Final[int] = 96
 
-    def __init__(self, parent: Optional[QObject] = None) -> None:
+    def __init__(self, parent: Optional[QtCore.QObject] = None) -> None:
         super().__init__(parent)
-        self._data: np.ndarray = np.empty((0, 0))
+        self._data: NDArray[np.float64] = np.empty((0, 0), dtype=np.float64)
         self._rows_loaded: int = self.ROW_BATCH_COUNT
 
         self._header: List[str] = []
@@ -21,15 +22,15 @@ class DataModel(QAbstractTableModel):
         return self._header
 
     @property
-    def all_data(self) -> np.ndarray:
+    def all_data(self) -> NDArray[np.float64]:
         return self._data[1:]
 
-    def rowCount(self, parent: Optional[QObject] = None, *, available_count: bool = False) -> int:
+    def rowCount(self, parent: Optional[QtCore.QObject] = None, *, available_count: bool = False) -> int:
         if available_count:
             return cast(int, self._data.shape[1])
         return min(cast(int, self._data.shape[1]), self._rows_loaded)
 
-    def columnCount(self, parent: Optional[QObject] = None) -> int:
+    def columnCount(self, parent: Optional[QtCore.QObject] = None) -> int:
         return len(self._header)
 
     def formatted_item(self, row: int, column: int) -> str:
@@ -46,49 +47,55 @@ class DataModel(QAbstractTableModel):
             return f'{value:.0f}'
         return str(np.around(value, decimals=12))
 
-    def data(self, index: QModelIndex, role: Qt.ItemDataRole = Qt.DisplayRole) -> Optional[str]:
+    def data(self, index: QtCore.QModelIndex,
+             role: QtCore.Qt.ItemDataRole = QtCore.Qt.ItemDataRole.DisplayRole) -> Optional[str]:
         if index.isValid():
-            if role == Qt.DisplayRole:
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
                 return self.formatted_item(index.row(), index.column())
         return None
 
     def item(self, row_index: int, column_index: int) -> np.float64:
         return self._data[column_index + 1, row_index]
 
-    def headerData(self, col: int, orientation: Qt.Orientation,
-                   role: Qt.ItemDataRole = Qt.DisplayRole) -> Optional[str]:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+    def headerData(self, col: int, orientation: QtCore.Qt.Orientation,
+                   role: QtCore.Qt.ItemDataRole = QtCore.Qt.ItemDataRole.DisplayRole) -> Optional[str]:
+        if orientation == QtCore.Qt.Orientation.Horizontal and role == QtCore.Qt.ItemDataRole.DisplayRole:
             return self._header[col]
-        if orientation == Qt.Vertical and role == Qt.DisplayRole and not np.isnan(self._data[0, col]):
+        if (orientation == QtCore.Qt.Orientation.Vertical
+                and role == QtCore.Qt.ItemDataRole.DisplayRole
+                and not np.isnan(self._data[0, col])):
             return f'{self._data[0, col]:.0f}'
         return None
 
-    def setHeaderData(self, section: int, orientation: Qt.Orientation,
-                      value: str, role: int = Qt.ItemDataRole()) -> bool:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole and 0 <= section < len(self._header):
+    def setHeaderData(self, section: int, orientation: QtCore.Qt.Orientation,
+                      value: str, role: int = QtCore.Qt.ItemDataRole()) -> bool:
+        if (orientation == QtCore.Qt.Orientation.Horizontal
+                and role == QtCore.Qt.ItemDataRole.DisplayRole
+                and 0 <= section < len(self._header)):
             self._header[section] = value
             return True
         return False
 
-    def set_data(self, new_data: Union[List[List[float]], np.ndarray], new_header: Optional[List[str]] = None) -> None:
+    def set_data(self, new_data: Union[List[List[float]], NDArray[np.float]],
+                 new_header: Optional[List[str]] = None) -> None:
         self.beginResetModel()
         self._data = np.array(new_data)
-        good: np.ndarray = ~np.all(self._data == 0.0, axis=1)
+        good: NDArray[np.bool] = ~np.all(self._data == 0.0, axis=1)
         self._data = self._data[good]
         if new_header is not None:
             self._header = [str(s) for s, g in zip(new_header, good) if g][1:]
         self._rows_loaded = self.ROW_BATCH_COUNT
         self.endResetModel()
 
-    def canFetchMore(self, index: QModelIndex = QModelIndex()) -> bool:
+    def canFetchMore(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> bool:
         return bool(self._data.shape[1] > self._rows_loaded)
 
-    def fetchMore(self, index: QModelIndex = QModelIndex()) -> None:
+    def fetchMore(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> None:
         # FIXME: if the 0th column is hidden, no data gets fetched despite it is available according to `canFetchMore`
         #  For now, the only solution is to load more than one screen can display. If the table is scrolled, data loads.
         # https://sateeshkumarb.wordpress.com/2012/04/01/paginated-display-of-table-data-in-pyqt/
         reminder: int = self._data.shape[1] - self._rows_loaded
         items_to_fetch: int = min(reminder, self.ROW_BATCH_COUNT)
-        self.beginInsertRows(QModelIndex(), self._rows_loaded, self._rows_loaded + items_to_fetch - 1)
+        self.beginInsertRows(QtCore.QModelIndex(), self._rows_loaded, self._rows_loaded + items_to_fetch - 1)
         self._rows_loaded += items_to_fetch
         self.endInsertRows()

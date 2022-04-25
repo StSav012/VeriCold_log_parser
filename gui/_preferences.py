@@ -2,8 +2,7 @@
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-from PyQt5.QtWidgets import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGroupBox, \
-    QSpinBox, QVBoxLayout, QWidget
+from pyqtgraph.Qt import QtWidgets
 
 from gui._checklist import CheckList
 from gui._open_file_path_entry import OpenFilePathEntry
@@ -12,10 +11,10 @@ from gui._settings import Settings
 __all__ = ['Preferences']
 
 
-class Preferences(QDialog):
+class Preferences(QtWidgets.QDialog):
     """ GUI preferences dialog """
 
-    def __init__(self, settings: Settings, parent: Optional[QWidget] = None, *args: Any) -> None:
+    def __init__(self, settings: Settings, parent: Optional[QtWidgets.QWidget] = None, *args: Any) -> None:
         super().__init__(parent, *args)
 
         self.settings: Settings = settings
@@ -24,10 +23,10 @@ class Preferences(QDialog):
         if parent is not None:
             self.setWindowIcon(parent.windowIcon())
 
-        layout: QVBoxLayout = QVBoxLayout(self)
-        combo_box: QComboBox
-        check_box: QCheckBox
-        spin_box: Union[QSpinBox, QDoubleSpinBox]
+        layout: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout(self)
+        combo_box: QtWidgets.QComboBox
+        check_box: QtWidgets.QCheckBox
+        spin_box: Union[QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox]
         check_list: CheckList
         open_file_path_entry: OpenFilePathEntry
         key: str
@@ -40,8 +39,8 @@ class Preferences(QDialog):
         ]
         for key, value in self.settings.dialog.items():
             if isinstance(value, dict):
-                box: QGroupBox = QGroupBox(key, self)
-                box_layout: QFormLayout = QFormLayout(box)
+                box: QtWidgets.QGroupBox = QtWidgets.QGroupBox(key, self)
+                box_layout: QtWidgets.QFormLayout = QtWidgets.QFormLayout(box)
                 key2: str
                 value2: Union[Tuple[str],
                               Tuple[Path],
@@ -59,7 +58,7 @@ class Preferences(QDialog):
                     if isinstance(value2, tuple) and isinstance(value2[-1], str) and value2[-1]:
                         if len(value2) == 1:
                             if isinstance(getattr(self.settings, value2[-1]), bool):
-                                check_box = QCheckBox(self.tr(key2), box)
+                                check_box = QtWidgets.QCheckBox(self.tr(key2), box)
                                 setattr(check_box, 'callback', value2[-1])
                                 check_box.setChecked(getattr(self.settings, value2[-1]))
                                 check_box.toggled.connect(
@@ -75,7 +74,7 @@ class Preferences(QDialog):
                         elif len(value2) == 2:
                             value3 = value2[0]
                             if isinstance(value3, Sequence):
-                                combo_box = QComboBox(box)
+                                combo_box = QtWidgets.QComboBox(box)
                                 setattr(combo_box, 'callback', value2[-1])
                                 for item in value3:
                                     combo_box.addItem(self.tr(item))
@@ -88,7 +87,7 @@ class Preferences(QDialog):
                             value3a = value2[0]
                             value3b = value2[1]
                             if isinstance(value3a, Sequence) and isinstance(value3b, Sequence):
-                                combo_box = QComboBox(box)
+                                combo_box = QtWidgets.QComboBox(box)
                                 setattr(combo_box, 'callback', value2[-1])
                                 for index, item in enumerate(value3a):
                                     combo_box.addItem(self.tr(item), value3b[index])
@@ -104,9 +103,9 @@ class Preferences(QDialog):
                                         and (value3a.stop is None or isinstance(value3a.stop, int))
                                         and (value3a.step is None or isinstance(value3a.step, int))
                                         and isinstance(getattr(self.settings, value2[-1]), int)):
-                                    spin_box = QSpinBox(box)
+                                    spin_box = QtWidgets.QSpinBox(box)
                                 else:
-                                    spin_box = QDoubleSpinBox(box)
+                                    spin_box = QtWidgets.QDoubleSpinBox(box)
                                 setattr(spin_box, 'callback', value2[-1])
                                 if value3a.start is not None:
                                     spin_box.setMinimum(value3a.start)
@@ -145,6 +144,6 @@ class Preferences(QDialog):
                     # no else
                 layout.addWidget(box)
             # no else
-        buttons: QDialogButtonBox = QDialogButtonBox(QDialogButtonBox.Close, self)
+        buttons: QtWidgets.QDialogButtonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close, self)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

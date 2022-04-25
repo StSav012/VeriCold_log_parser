@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
-from base64 import b64encode
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
-from PyQt5.QtCore import QByteArray, QCoreApplication, QModelIndex, QPoint, QRect, QTranslator, Qt
-from PyQt5.QtGui import QCloseEvent, QIcon, QPixmap, QScreen
-from PyQt5.QtWidgets import QAction, QApplication, QFileDialog, QGridLayout, QHeaderView, QMainWindow, \
-    QMenu, QMenuBar, QMessageBox, QStatusBar, QTableView, QWidget
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
+from pyqtgraph.widgets import FileDialog
 
 from gui._data_model import DataModel
 from gui._plot import Plot
@@ -18,56 +15,52 @@ from log_parser import parse
 
 
 def copy_to_clipboard(plain_text: str, rich_text: str = '',
-                      text_type: Union[Qt.TextFormat, str] = Qt.PlainText) -> None:
-    from PyQt5.QtGui import QClipboard
-    from PyQt5.QtCore import QMimeData
-
-    clipboard: QClipboard = QApplication.clipboard()
-    mime_data: QMimeData = QMimeData()
+                      text_type: Union[QtCore.Qt.TextFormat, str] = QtCore.Qt.TextFormat.PlainText) -> None:
+    clipboard: QtGui.QClipboard = QtWidgets.QApplication.clipboard()
+    mime_data: QtCore.QMimeData = QtCore.QMimeData()
     if isinstance(text_type, str):
         mime_data.setData(text_type, plain_text.encode())
-    elif text_type == Qt.RichText:
+    elif text_type == QtCore.Qt.TextFormat.RichText:
         mime_data.setHtml(rich_text)
         mime_data.setText(plain_text)
     else:
         mime_data.setText(plain_text)
-    clipboard.setMimeData(mime_data, QClipboard.Clipboard)
+    clipboard.setMimeData(mime_data, QtGui.QClipboard.Clipboard)
 
 
-class MainWindow(QMainWindow):
-    def __init__(self, application: Optional[QApplication] = None,
-                 parent: Optional[QWidget] = None,
-                 flags: Union[Qt.WindowFlags, Qt.WindowType] = Qt.WindowFlags()) -> None:
-        super().__init__(parent=parent, flags=flags)
-        self.central_widget: QWidget = QWidget(self)
-        self.main_layout: QGridLayout = QGridLayout(self.central_widget)
-        self.table: QTableView = QTableView(self.central_widget)
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self, application: Optional[QtWidgets.QApplication] = None,
+                 parent: Optional[QtWidgets.QWidget] = None) -> None:
+        super().__init__(parent=parent)
+        self.central_widget: QtWidgets.QWidget = QtWidgets.QWidget(self)
+        self.main_layout: QtWidgets.QGridLayout = QtWidgets.QGridLayout(self.central_widget)
+        self.table: QtWidgets.QTableView = QtWidgets.QTableView(self.central_widget)
         self.table_model: DataModel = DataModel(self)
         self.table.setModel(self.table_model)
-        self.menu_bar: QMenuBar = QMenuBar(self)
-        self.menu_file: QMenu = QMenu(self.menu_bar)
-        self.menu_edit: QMenu = QMenu(self.menu_bar)
-        self.menu_view: QMenu = QMenu(self.menu_bar)
-        self.menu_plot: QMenu = QMenu(self.menu_bar)
-        self.menu_about: QMenu = QMenu(self.menu_bar)
-        self.action_open: QAction = QAction(self)
-        self.action_export: QAction = QAction(self)
-        self.action_reload: QAction = QAction(self)
-        self.action_preferences: QAction = QAction(self)
-        self.action_quit: QAction = QAction(self)
-        self.action_copy: QAction = QAction(self)
-        self.action_copy_all: QAction = QAction(self)
-        self.action_select_all: QAction = QAction(self)
-        self.action_show_plot: QAction = QAction(self)
-        self.action_about: QAction = QAction(self)
-        self.action_about_qt: QAction = QAction(self)
-        self.status_bar: QStatusBar = QStatusBar(self)
+        self.menu_bar: QtWidgets.QMenuBar = QtWidgets.QMenuBar(self)
+        self.menu_file: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
+        self.menu_edit: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
+        self.menu_view: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
+        self.menu_plot: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
+        self.menu_about: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
+        self.action_open: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_export: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_reload: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_preferences: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_quit: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_copy: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_copy_all: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_select_all: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_show_plot: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_about: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_about_qt: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.status_bar: QtWidgets.QStatusBar = QtWidgets.QStatusBar(self)
 
         self._opened_file_name: str = ''
         self._exported_file_name: str = ''
         self.settings: Settings = Settings('SavSoft', 'VeriCold data log viewer', self)
         if application is not None and self.settings.translation_path is not None:
-            translator: QTranslator = QTranslator(self)
+            translator: QtCore.QTranslator = QtCore.QTranslator(self)
             translator.load(str(self.settings.translation_path))
             application.installTranslator(translator)
 
@@ -75,8 +68,8 @@ class MainWindow(QMainWindow):
 
     def setup_ui(self) -> None:
         # https://ru.stackoverflow.com/a/1032610
-        window_icon: QPixmap = QPixmap()
-        window_icon.loadFromData(QByteArray.fromBase64(b64encode(b'''\
+        window_icon: QtGui.QPixmap = QtGui.QPixmap()
+        window_icon.loadFromData(b'''\
                     <svg version="1.1" viewBox="0 0 135 135" xmlns="http://www.w3.org/2000/svg">\
                     <path d="m0 0h135v135h-135v-135" fill="#282e70"/>\
                     <path d="m23 51c3.4-8.7 9.4-16 17-22s17-8.2 26-8.2c9.3 0 19 2.9 26 8.2 7.7 5.3 14 13 17 22 4.1 11 \
@@ -88,21 +81,21 @@ class MainWindow(QMainWindow):
                     4e-6-1e-5 5.5-.62 12-2.5 18-6.5 4.9-3.2 9.4-7.9 13-14 2.8-5.2 4.5-11 \
                     4.5-18v-2e-6c.003-6.4-1.7-13-4.5-18-3.1-5.8-7.7-11-13-14-5.9-4-12-5.8-18-6.5-12-1.4-20 \
                     2.3-20 1.2z" fill="#282e70"/></svg>\
-                    ''')), 'SVG')
-        self.setWindowIcon(QIcon(QPixmap(window_icon)))
+                    ''', 'SVG')
+        self.setWindowIcon(QtGui.QIcon(QtGui.QPixmap(window_icon)))
 
         self.setObjectName('main_window')
         self.resize(640, 480)
         self.central_widget.setObjectName('central_widget')
         self.main_layout.setObjectName('main_layout')
         self.table.setAlternatingRowColors(True)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.table.setWordWrap(False)
         self.table.setObjectName('table')
         self.table.horizontalHeader().setStretchLastSection(True)
         self.main_layout.addWidget(self.table, 0, 0, 1, 1)
         self.setCentralWidget(self.central_widget)
-        self.menu_bar.setGeometry(QRect(0, 0, 800, 29))
+        self.menu_bar.setGeometry(QtCore.QRect(0, 0, 800, 29))
         self.menu_bar.setObjectName('menu_bar')
         self.menu_file.setObjectName('menu_file')
         self.menu_edit.setObjectName('menu_edit')
@@ -112,30 +105,30 @@ class MainWindow(QMainWindow):
         self.setMenuBar(self.menu_bar)
         self.status_bar.setObjectName('status_bar')
         self.setStatusBar(self.status_bar)
-        self.action_open.setIcon(QIcon.fromTheme('document-open'))
+        self.action_open.setIcon(QtGui.QIcon.fromTheme('document-open'))
         self.action_open.setObjectName('action_open')
-        self.action_export.setIcon(QIcon.fromTheme('document-save-as'))
+        self.action_export.setIcon(QtGui.QIcon.fromTheme('document-save-as'))
         self.action_export.setObjectName('action_export')
-        self.action_reload.setIcon(QIcon.fromTheme('view-refresh'))
+        self.action_reload.setIcon(QtGui.QIcon.fromTheme('view-refresh'))
         self.action_reload.setObjectName('action_reload')
-        self.action_preferences.setMenuRole(QAction.PreferencesRole)
+        self.action_preferences.setMenuRole(QtWidgets.QAction.MenuRole.PreferencesRole)
         self.action_preferences.setObjectName('action_preferences')
-        self.action_quit.setIcon(QIcon.fromTheme('application-exit'))
-        self.action_quit.setMenuRole(QAction.QuitRole)
+        self.action_quit.setIcon(QtGui.QIcon.fromTheme('application-exit'))
+        self.action_quit.setMenuRole(QtWidgets.QAction.MenuRole.QuitRole)
         self.action_quit.setObjectName('action_quit')
-        self.action_copy.setIcon(QIcon.fromTheme('edit-copy'))
+        self.action_copy.setIcon(QtGui.QIcon.fromTheme('edit-copy'))
         self.action_copy.setObjectName('action_copy')
-        self.action_copy_all.setIcon(QIcon.fromTheme('edit-copy'))
+        self.action_copy_all.setIcon(QtGui.QIcon.fromTheme('edit-copy'))
         self.action_copy_all.setObjectName('action_copy')
-        self.action_select_all.setIcon(QIcon.fromTheme('edit-select-all'))
+        self.action_select_all.setIcon(QtGui.QIcon.fromTheme('edit-select-all'))
         self.action_select_all.setObjectName('action_select_all')
-        self.action_show_plot.setMenuRole(QAction.ApplicationSpecificRole)
+        self.action_show_plot.setMenuRole(QtWidgets.QAction.MenuRole.ApplicationSpecificRole)
         self.action_show_plot.setObjectName('action_show_about')
-        self.action_about.setIcon(QIcon.fromTheme('help-about'))
-        self.action_about.setMenuRole(QAction.AboutRole)
+        self.action_about.setIcon(QtGui.QIcon.fromTheme('help-about'))
+        self.action_about.setMenuRole(QtWidgets.QAction.MenuRole.AboutRole)
         self.action_about.setObjectName('action_about')
-        self.action_about_qt.setIcon(QIcon.fromTheme('help-about-qt'))
-        self.action_about_qt.setMenuRole(QAction.AboutQtRole)
+        self.action_about_qt.setIcon(QtGui.QIcon.fromTheme('help-about-qt'))
+        self.action_about_qt.setMenuRole(QtWidgets.QAction.MenuRole.AboutQtRole)
         self.action_about_qt.setObjectName('action_about_qt')
         self.menu_file.addAction(self.action_open)
         self.menu_file.addAction(self.action_export)
@@ -188,7 +181,7 @@ class MainWindow(QMainWindow):
         self.load_settings()
 
     def translate(self) -> None:
-        _translate = QCoreApplication.translate
+        _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate('main_window', 'VeriCold data log viewer'))
         setattr(self, 'initial_window_title', self.windowTitle())
         self.menu_file.setTitle(_translate('main_window', 'File'))
@@ -208,7 +201,7 @@ class MainWindow(QMainWindow):
         self.action_about.setText(_translate('main_window', 'About'))
         self.action_about_qt.setText(_translate('main_window', 'About Qt'))
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         self.save_settings()
         event.accept()
 
@@ -220,14 +213,14 @@ class MainWindow(QMainWindow):
 
         self.settings.beginGroup('window')
         # Fallback: Center the window
-        desktop: QScreen = QApplication.screens()[0]
-        window_frame: QRect = self.frameGeometry()
-        desktop_center: QPoint = desktop.availableGeometry().center()
+        desktop: QtGui.QScreen = QtWidgets.QApplication.screens()[0]
+        window_frame: QtCore.QRect = self.frameGeometry()
+        desktop_center: QtCore.QPoint = desktop.availableGeometry().center()
         window_frame.moveCenter(desktop_center)
         self.move(window_frame.topLeft())
 
-        self.restoreGeometry(self.settings.value('geometry', QByteArray()))
-        self.restoreState(self.settings.value('state', QByteArray()))
+        self.restoreGeometry(self.settings.value('geometry', QtCore.QByteArray()))
+        self.restoreState(self.settings.value('state', QtCore.QByteArray()))
         self.settings.endGroup()
 
     def save_settings(self) -> None:
@@ -254,7 +247,7 @@ class MainWindow(QMainWindow):
                             if self.settings.visible_columns[column]]
                            for row in range(self.table_model.rowCount(available_count=True))]
         else:
-            si: QModelIndex
+            si: QtCore.QModelIndex
             rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
             cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
             text_matrix = [['' for _ in range(len(cols))]
@@ -277,7 +270,7 @@ class MainWindow(QMainWindow):
                             if self.settings.visible_columns[column]]
                            for row in range(self.table_model.rowCount(available_count=True))]
         else:
-            si: QModelIndex
+            si: QtCore.QModelIndex
             rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
             cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
             text_matrix = [['' for _ in range(len(cols))]
@@ -309,7 +302,7 @@ class MainWindow(QMainWindow):
             index: int
             title: str
             for index, title in enumerate(self.table_model.header):
-                action: QAction = self.menu_view.addAction(title)
+                action: QtWidgets.QAction = self.menu_view.addAction(title)
                 action.setCheckable(True)
                 if (self.settings.is_visible(title)
                         and (self.settings.show_all_zero_columns
@@ -389,7 +382,7 @@ class MainWindow(QMainWindow):
 
     def on_action_open_triggered(self) -> None:
         new_file_name: str
-        new_file_name, _ = QFileDialog.getOpenFileName(
+        new_file_name, _ = FileDialog.getOpenFileName(
             self, self.tr('Open'),
             self._opened_file_name,
             f'{self.tr("VeriCold data logfile")} (*.vcl);;{self.tr("All Files")} (*.*)')
@@ -413,7 +406,7 @@ class MainWindow(QMainWindow):
                 initial_filter = supported_formats[exported_file_name_ext]
         new_file_name: str
         new_file_name_filter: str  # BUG: it's empty when a native dialog is used
-        new_file_name, new_file_name_filter = QFileDialog.getSaveFileName(
+        new_file_name, new_file_name_filter = FileDialog.getSaveFileName(
             self, self.tr('Export'),
             str(Path(self._exported_file_name or self._opened_file_name)
                 .with_name(Path(self._opened_file_name).name)),
@@ -427,7 +420,7 @@ class MainWindow(QMainWindow):
             supported_formats_callbacks[new_file_name_ext](new_file_name)
 
     def on_action_column_triggered(self) -> None:
-        a: QAction
+        a: QtWidgets.QAction
         i: int
         for i, a in enumerate(self.menu_view.actions()):
             if a.isChecked() and (self.settings.show_all_zero_columns
@@ -452,7 +445,7 @@ class MainWindow(QMainWindow):
 
         title: str
         visibility: bool
-        action: QAction
+        action: QtWidgets.QAction
         column: int
         for column, (visibility, action) in enumerate(zip(self.settings.visible_columns, self.menu_view.actions())):
             if action.isChecked() != visibility:
@@ -470,11 +463,12 @@ class MainWindow(QMainWindow):
         self.close()
 
     def on_action_copy_triggered(self) -> None:
-        copy_to_clipboard(self.stringify_selection_plain_text(), self.stringify_selection_html(), Qt.RichText)
+        copy_to_clipboard(self.stringify_selection_plain_text(),
+                          self.stringify_selection_html(), QtCore.Qt.TextFormat.RichText)
 
     def on_action_copy_all_triggered(self) -> None:
         copy_to_clipboard(self.stringify_selection_plain_text(whole_table=True),
-                          self.stringify_selection_html(whole_table=True), Qt.RichText)
+                          self.stringify_selection_html(whole_table=True), QtCore.Qt.TextFormat.RichText)
 
     def on_action_select_all_triggered(self) -> None:
         self.table.selectAll()
@@ -484,18 +478,18 @@ class MainWindow(QMainWindow):
         plot.exec()
 
     def on_action_about_triggered(self) -> None:
-        QMessageBox.about(self,
-                          self.tr("About VeriCold data log viewer"),
-                          "<html><p>"
-                          + self.tr("VeriCold data logfiles are created by Oxford Instruments plc.")
-                          + "</p><br><p>"
-                          + self.tr("VeriCold data log viewer is licensed under the {0}.")
-                          .format("<a href='https://www.gnu.org/copyleft/lesser.html'>{0}</a>"
-                                  .format(self.tr("GNU LGPL version 3")))
-                          + "</p><p>"
-                          + self.tr("The source code is available on {0}.").format(
-                              "<a href='https://github.com/StSav012/VeriCold_log_parser'>GitHub</a>")
-                          + "</p></html>")
+        QtWidgets.QMessageBox.about(self,
+                                    self.tr("About VeriCold data log viewer"),
+                                    "<html><p>"
+                                    + self.tr("VeriCold data logfiles are created by Oxford Instruments plc.")
+                                    + "</p><br><p>"
+                                    + self.tr("VeriCold data log viewer is licensed under the {0}.")
+                                    .format("<a href='https://www.gnu.org/copyleft/lesser.html'>{0}</a>"
+                                            .format(self.tr("GNU LGPL version 3")))
+                                    + "</p><p>"
+                                    + self.tr("The source code is available on {0}.").format(
+                                        "<a href='https://github.com/StSav012/VeriCold_log_parser'>GitHub</a>")
+                                    + "</p></html>")
 
     def on_action_about_qt_triggered(self) -> None:
-        QMessageBox.aboutQt(self)
+        QtWidgets.QMessageBox.aboutQt(self)

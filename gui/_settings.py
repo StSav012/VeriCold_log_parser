@@ -3,14 +3,12 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Sequence, Set, Tuple, Union
 
-from PyQt5.QtCore import QSettings
+from pyqtgraph.Qt import QtCore, QtGui
 
 __all__ = ['Settings']
 
-from PyQt5.QtGui import QColor
 
-
-class Settings(QSettings):
+class Settings(QtCore.QSettings):
     """ convenient internal representation of the application settings """
     LINE_ENDS: Final[List[str]] = [r'Line Feed (\n)', r'Carriage Return (\r)', r'CR+LF (\r\n)', r'LF+CR (\n\r)']
     _LINE_ENDS: Final[List[str]] = ['\n', '\r', '\r\n', '\n\r']
@@ -31,7 +29,7 @@ class Settings(QSettings):
         self.endArray()
         self.endGroup()
 
-        self.line_colors: Dict[str, QColor] = dict()
+        self.line_colors: Dict[str, QtGui.QColor] = dict()
 
         self.beginGroup('plot')
         key: str
@@ -53,7 +51,7 @@ class Settings(QSettings):
 
         self.beginGroup('plot')
         key: int
-        value: QColor
+        value: QtGui.QColor
         for key, value in self.line_colors.items():
             self.setValue(f'{key} color', value)
         self.endGroup()
