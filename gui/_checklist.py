@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from typing import Any, Union
+from __future__ import annotations
+
+from typing import Any
 
 from pyqtgraph.Qt import QtCore, QtWidgets
 
@@ -24,8 +26,8 @@ class CheckList(QtWidgets.QWidget):
 
         self._list.itemChanged.connect(self.onListItemChanged)
 
-    def addItem(self, item: Union[str, QtWidgets.QListWidgetItem],
-                checked: Union[bool, QtCore.Qt.CheckState] = QtCore.Qt.CheckState.Unchecked) -> None:
+    def addItem(self, item: str | QtWidgets.QListWidgetItem,
+                checked: bool | QtCore.Qt.CheckState = QtCore.Qt.CheckState.Unchecked) -> None:
         if not isinstance(item, QtWidgets.QListWidgetItem):
             item = QtWidgets.QListWidgetItem(self.tr(item), self._list)
         if not isinstance(checked, QtCore.Qt.CheckState):
@@ -43,10 +45,18 @@ class CheckList(QtWidgets.QWidget):
             self._all.setCheckState(QtCore.Qt.CheckState.PartiallyChecked)
         self._all.blockSignals(False)
 
-    def onCheckAllToggled(self, new_state: QtCore.Qt.CheckState) -> None:
+    def onCheckAllToggled(self, new_state: QtCore.Qt.CheckState | int) -> None:
         r: int
         self._all.setTristate(False)
         self._list.blockSignals(True)
+
+        if isinstance(new_state, int):  # fix for PySide6.3
+            new_state = {
+                0: QtCore.Qt.CheckState.Unchecked,
+                1: QtCore.Qt.CheckState.PartiallyChecked,
+                2: QtCore.Qt.CheckState.Checked
+            }[new_state]
+
         for r in range(self._list.count()):
             self._list.item(r).setCheckState(new_state)
         self._list.blockSignals(False)
@@ -56,9 +66,11 @@ class CheckList(QtWidgets.QWidget):
     def onListItemChanged(self, _: QtWidgets.QListWidgetItem) -> None:
         r: int
         self._all.blockSignals(True)
-        if all([self._list.item(r).checkState() == QtCore.Qt.CheckState.Checked for r in range(self._list.count())]):
+        if all([self._list.item(r).checkState() == QtCore.Qt.CheckState.Checked
+                for r in range(self._list.count())]):
             self._all.setCheckState(QtCore.Qt.CheckState.Checked)
-        elif all([self._list.item(r).checkState() == QtCore.Qt.CheckState.Unchecked for r in range(self._list.count())]):
+        elif all([self._list.item(r).checkState() == QtCore.Qt.CheckState.Unchecked
+                  for r in range(self._list.count())]):
             self._all.setCheckState(QtCore.Qt.CheckState.Unchecked)
         else:
             self._all.setCheckState(QtCore.Qt.CheckState.PartiallyChecked)

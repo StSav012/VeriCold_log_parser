@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 import functools
 from datetime import datetime
-from typing import Final, List, Optional, Union, cast
+from typing import Final, Optional, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -23,22 +25,22 @@ class DataModel(QtCore.QAbstractTableModel):
         self._data: NDArray[np.float64] = np.empty((0, 0), dtype=np.float64)
         self._rows_loaded: int = self.ROW_BATCH_COUNT
 
-        self._header: List[str] = []
+        self._header: list[str] = []
 
     @property
-    def header(self) -> List[str]:
+    def header(self) -> list[str]:
         return self._header
 
     @property
     def all_data(self) -> NDArray[np.float64]:
         return self._data[1:]
 
-    def rowCount(self, parent: Optional[QtCore.QObject] = None, *, available_count: bool = False) -> int:
+    def rowCount(self, parent: Optional[QtCore.QModelIndex] = None, *, available_count: bool = False) -> int:
         if available_count:
             return cast(int, self._data.shape[1])
         return min(cast(int, self._data.shape[1]), self._rows_loaded)
 
-    def columnCount(self, parent: Optional[QtCore.QObject] = None) -> int:
+    def columnCount(self, parent: Optional[QtCore.QModelIndex] = None) -> int:
         return len(self._header)
 
     def formatted_item(self, row: int, column: int) -> str:
@@ -76,7 +78,7 @@ class DataModel(QtCore.QAbstractTableModel):
         return None
 
     def setHeaderData(self, section: int, orientation: QtCore.Qt.Orientation,
-                      value: str, role: int = QtCore.Qt.ItemDataRole()) -> bool:
+                      value: str, role: int = QtCore.Qt.ItemDataRole.DisplayRole) -> bool:
         if (orientation == QtCore.Qt.Orientation.Horizontal
                 and role == QtCore.Qt.ItemDataRole.DisplayRole
                 and 0 <= section < len(self._header)):
@@ -84,8 +86,8 @@ class DataModel(QtCore.QAbstractTableModel):
             return True
         return False
 
-    def set_data(self, new_data: Union[List[List[float]], NDArray[np.float]],
-                 new_header: Optional[List[str]] = None) -> None:
+    def set_data(self, new_data: list[list[float]] | NDArray[np.float],
+                 new_header: Optional[list[str]] = None) -> None:
         self.beginResetModel()
         self._data = np.array(new_data)
         good: NDArray[np.bool] = ~np.all(self._data == 0.0, axis=1)

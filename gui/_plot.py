@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional, cast
 
 import numpy as np
 import pyqtgraph as pg
@@ -39,7 +41,7 @@ class Plot(QtWidgets.QDialog):
         cursor_balloon: pg.TextItem = pg.TextItem()
         plot.addItem(cursor_balloon, True)  # ignore bounds
 
-        def on_mouse_moved(event: Tuple[QtCore.QPointF]) -> None:
+        def on_mouse_moved(event: tuple[QtCore.QPointF]) -> None:
             pos: QtCore.QPointF = event[0]
             if plot.sceneBoundingRect().contains(pos):
                 point: QtCore.QPointF = canvas.vb.mapSceneToView(pos)
@@ -67,10 +69,10 @@ class Plot(QtWidgets.QDialog):
         header: str
         column: np.ndarray
         visibility: bool
-        self.lines: List[pg.PlotDataItem] = []
-        self.color_buttons: List[pg.ColorButton] = []
+        self.lines: list[pg.PlotDataItem] = []
+        self.color_buttons: list[pg.ColorButton] = []
         visible_columns_count: int = 0
-        visible_headers: List[str] = []
+        visible_headers: list[str] = []
         for header, column, visibility in zip(data_model.header, data_model.all_data, self.settings.check_items_values):
             if not (visibility and (self.settings.show_all_zero_columns
                                     or not np.alltrue((column == 0.0) | np.isnan(column)))) \
@@ -99,7 +101,8 @@ class Plot(QtWidgets.QDialog):
             self.color_buttons[-1].sigColorChanged.connect(set_line_color)
 
         self.settings.beginGroup('plot')
-        window_settings: bytes = self.settings.value('geometry')
+        window_settings: QtCore.QByteArray() = cast(QtCore.QByteArray, 
+                                                    self.settings.value('geometry', QtCore.QByteArray()))
         if window_settings is not None:
             self.restoreGeometry(window_settings)
         self.settings.endGroup()

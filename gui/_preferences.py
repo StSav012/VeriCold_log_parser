@@ -14,8 +14,8 @@ __all__ = ['Preferences']
 class Preferences(QtWidgets.QDialog):
     """ GUI preferences dialog """
 
-    def __init__(self, settings: Settings, parent: Optional[QtWidgets.QWidget] = None, *args: Any) -> None:
-        super().__init__(parent, *args)
+    def __init__(self, settings: Settings, parent: Optional[QtWidgets.QWidget] = None) -> None:
+        super().__init__(parent)
 
         self.settings: Settings = settings
         self.setModal(True)
@@ -61,14 +61,13 @@ class Preferences(QtWidgets.QDialog):
                                 check_box = QtWidgets.QCheckBox(self.tr(key2), box)
                                 setattr(check_box, 'callback', value2[-1])
                                 check_box.setChecked(getattr(self.settings, value2[-1]))
-                                check_box.toggled.connect(
-                                    lambda x: setattr(self.settings, getattr(self.sender(), 'callback'), x))
+                                check_box.toggled.connect(lambda *args, sender=check_box: self._on_event(*args, sender))
                                 box_layout.addWidget(check_box)
                             elif isinstance(getattr(self.settings, value2[-1]), (Path, type(None))):
                                 open_file_path_entry = OpenFilePathEntry(getattr(self.settings, value2[-1]), box)
                                 setattr(open_file_path_entry, 'callback', value2[-1])
                                 open_file_path_entry.changed.connect(
-                                    lambda x: setattr(self.settings, getattr(self.sender(), 'callback'), x))
+                                    lambda *args, sender=open_file_path_entry: self._on_event(*args, sender))
                                 box_layout.addRow(key2, open_file_path_entry)
                             # no else
                         elif len(value2) == 2:
@@ -80,7 +79,8 @@ class Preferences(QtWidgets.QDialog):
                                     combo_box.addItem(self.tr(item))
                                 combo_box.setCurrentIndex(getattr(self.settings, value2[-1]))
                                 combo_box.currentIndexChanged.connect(
-                                    lambda x: setattr(self.settings, getattr(self.sender(), 'callback'), x))
+                                    lambda *args, sender=combo_box:
+                                    self._on_combo_box_current_index_changed(*args, sender))
                                 box_layout.addRow(self.tr(key2), combo_box)
                             # no else
                         elif len(value2) == 3:
@@ -93,8 +93,8 @@ class Preferences(QtWidgets.QDialog):
                                     combo_box.addItem(self.tr(item), value3b[index])
                                 combo_box.setCurrentIndex(value3b.index(getattr(self.settings, value2[-1])))
                                 combo_box.currentIndexChanged.connect(
-                                    lambda _: setattr(self.settings, getattr(self.sender(), 'callback'),
-                                                      self.sender().currentData()))
+                                    lambda *args, sender=combo_box:
+                                    self._on_combo_box_current_index_changed(*args, sender))
                                 box_layout.addRow(self.tr(key2), combo_box)
                             elif (isinstance(value3a, slice)
                                   and isinstance(getattr(self.settings, value2[-1]), (int, float))
@@ -121,8 +121,7 @@ class Preferences(QtWidgets.QDialog):
                                     spin_box.setSuffix(str(value3b[0]))
                                 # no else
                                 spin_box.valueChanged.connect(
-                                    lambda _: setattr(self.settings, getattr(self.sender(), 'callback'),
-                                                      self.sender().value()))
+                                    lambda *args, sender=spin_box: self._on_event(*args, sender))
                                 box_layout.addRow(self.tr(key2), spin_box)
                             # no else
                         elif len(value2) == 4:
@@ -136,8 +135,7 @@ class Preferences(QtWidgets.QDialog):
                                 for index, item in enumerate(value3a):
                                     check_list.addItem(self.tr(item), value3b[index])
                                 check_list.checkStateChanged.connect(
-                                    lambda visibility: setattr(self.settings, getattr(self.sender(), 'callback'),
-                                                               visibility))
+                                    lambda *args, sender=check_list: self._on_event(*args, sender))
                                 box_layout.addRow(self.tr(key2), check_list)
                             # no else
                         # no else
@@ -147,3 +145,10 @@ class Preferences(QtWidgets.QDialog):
         buttons: QtWidgets.QDialogButtonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close, self)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+        # https://forum.qt.io/post/671245
+    def _on_event(self, x: Union[bool, float], sender: QtWidgets.QWidget) -> None:
+        setattr(self.settings, getattr(sender, 'callback'), x)
+
+    def _on_combo_box_current_index_changed(self, _: int, sender: QtWidgets.QComboBox) -> None:
+        setattr(self.settings, getattr(sender, 'callback'), sender.currentData())

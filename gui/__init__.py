@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
-from typing import Set
+from __future__ import annotations
 
-from pyqtgraph.Qt import QtCore, QtWidgets
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 
 from gui._ui import MainWindow
+
+if not hasattr(QtGui, 'QAction'):  # PyQt5, PySide2
+    setattr(QtGui, 'QAction', QtWidgets.QAction)
+
+if not hasattr(QtWidgets.QApplication, 'exec'):  # PySide2
+    QtWidgets.QApplication.exec = QtWidgets.QApplication.exec_
 
 
 def run() -> None:
@@ -11,7 +17,7 @@ def run() -> None:
 
     app: QtWidgets.QApplication = QtWidgets.QApplication(sys.argv)
 
-    languages: Set[str] = set(QtCore.QLocale().uiLanguages() + [QtCore.QLocale().bcp47Name(), QtCore.QLocale().name()])
+    languages: set[str] = set(QtCore.QLocale().uiLanguages() + [QtCore.QLocale().bcp47Name(), QtCore.QLocale().name()])
     language: str
     qt_translator: QtCore.QTranslator = QtCore.QTranslator()
     for language in languages:

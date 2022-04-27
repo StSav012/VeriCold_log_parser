@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Any, Dict, Final, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Final, Optional, Sequence, cast
 
 from pyqtgraph.Qt import QtCore, QtGui
 
@@ -10,26 +12,26 @@ __all__ = ['Settings']
 
 class Settings(QtCore.QSettings):
     """ convenient internal representation of the application settings """
-    LINE_ENDS: Final[List[str]] = [r'Line Feed (\n)', r'Carriage Return (\r)', r'CR+LF (\r\n)', r'LF+CR (\n\r)']
-    _LINE_ENDS: Final[List[str]] = ['\n', '\r', '\r\n', '\n\r']
-    CSV_SEPARATORS: Final[List[str]] = [r'comma (,)', r'tab (\t)', r'semicolon (;)', r'space ( )']
-    _CSV_SEPARATORS: Final[List[str]] = [',', '\t', ';', ' ']
+    LINE_ENDS: Final[list[str]] = [r'Line Feed (\n)', r'Carriage Return (\r)', r'CR+LF (\r\n)', r'LF+CR (\n\r)']
+    _LINE_ENDS: Final[list[str]] = ['\n', '\r', '\r\n', '\n\r']
+    CSV_SEPARATORS: Final[list[str]] = [r'comma (,)', r'tab (\t)', r'semicolon (;)', r'space ( )']
+    _CSV_SEPARATORS: Final[list[str]] = [',', '\t', ';', ' ']
 
     def __init__(self, *args: Any) -> None:
         super().__init__(*args)
-        self.check_items_names: List[str] = []
-        self.check_items_values: List[bool] = []
+        self.check_items_names: list[str] = []
+        self.check_items_values: list[bool] = []
 
         self.beginGroup('columns')
-        self._visible_column_names: Set[str] = set()
+        self._visible_column_names: set[str] = set()
         i: int
         for i in range(self.beginReadArray('visible')):
             self.setArrayIndex(i)
-            self._visible_column_names.add(self.value('name', '', str))
+            self._visible_column_names.add(str(self.value('name', '', str)))
         self.endArray()
         self.endGroup()
 
-        self.line_colors: Dict[str, QtGui.QColor] = dict()
+        self.line_colors: dict[str, QtGui.QColor] = dict()
 
         self.beginGroup('plot')
         key: str
@@ -59,14 +61,14 @@ class Settings(QtCore.QSettings):
         super().sync()
 
     @property
-    def dialog(self) -> Dict[str,
-                             Union[
-                                 Dict[str, Tuple[str]],
-                                 Dict[str, Tuple[Path]],
-                                 Dict[str, Tuple[Sequence[str], str]],
-                                 Dict[str, Tuple[Sequence[str], Sequence[bool], str, str]],
-                                 Dict[str, Tuple[Sequence[str], Sequence[str], str]],
-                             ]]:
+    def dialog(self) -> dict[str,
+                             (
+                                 dict[str, tuple[str]] |
+                                 dict[str, tuple[Path]] |
+                                 dict[str, tuple[Sequence[str], str]] |
+                                 dict[str, tuple[Sequence[str], Sequence[bool], str, str]] |
+                                 dict[str, tuple[Sequence[str], Sequence[str], str]]
+                             )]:
         return {
             self.tr('View'): {
                 self.tr('Visible columns:'): (self.check_items_names, self.check_items_values,
@@ -83,7 +85,7 @@ class Settings(QtCore.QSettings):
     @property
     def line_end(self) -> str:
         self.beginGroup('export')
-        v: int = self.value('lineEnd', self._LINE_ENDS.index(os.linesep), int)
+        v: int = int(cast(int, self.value('lineEnd', self._LINE_ENDS.index(os.linesep), int)))
         self.endGroup()
         return self._LINE_ENDS[v]
 
@@ -96,7 +98,7 @@ class Settings(QtCore.QSettings):
     @property
     def csv_separator(self) -> str:
         self.beginGroup('export')
-        v: int = self.value('csvSeparator', self._CSV_SEPARATORS.index('\t'), int)
+        v: int = int(cast(int, self.value('csvSeparator', self._CSV_SEPARATORS.index('\t'), int)))
         self.endGroup()
         return self._CSV_SEPARATORS[v]
 
@@ -107,18 +109,18 @@ class Settings(QtCore.QSettings):
         self.endGroup()
 
     @property
-    def visible_columns(self) -> List[bool]:
+    def visible_columns(self) -> list[bool]:
         return self.check_items_values
 
     @visible_columns.setter
-    def visible_columns(self, new_values: List[bool]) -> None:
+    def visible_columns(self, new_values: list[bool]) -> None:
         self.check_items_values = new_values[:]
         self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)
 
     @property
     def show_all_zero_columns(self) -> bool:
         self.beginGroup('columns')
-        v: bool = self.value('showAllZeroColumns', False, bool)
+        v: bool = bool(self.value('showAllZeroColumns', False, bool))
         self.endGroup()
         return v
 
@@ -129,11 +131,11 @@ class Settings(QtCore.QSettings):
         self.endGroup()
 
     @property
-    def columns(self) -> Tuple[List[str], List[bool]]:
+    def columns(self) -> tuple[list[str], list[bool]]:
         return self.check_items_names, self.check_items_values
 
     @columns.setter
-    def columns(self, new: Tuple[List[str], List[bool]]) -> None:
+    def columns(self, new: tuple[list[str], list[bool]]) -> None:
         self.check_items_names = new[0][:]
         self.check_items_values = new[1][:]
         self._visible_column_names = set(s for s, v in zip(self.check_items_names, self.check_items_values) if v)
@@ -144,7 +146,7 @@ class Settings(QtCore.QSettings):
     @property
     def translation_path(self) -> Optional[Path]:
         self.beginGroup('translation')
-        v: str = self.value('filePath', '', str)
+        v: str = str(self.value('filePath', '', str))
         self.endGroup()
         return Path(v) if v else None
 

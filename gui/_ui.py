@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Optional, cast
 
 import numpy as np
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
-from pyqtgraph.widgets import FileDialog
 
 from gui._data_model import DataModel
 from gui._plot import Plot
@@ -15,7 +16,7 @@ from log_parser import parse
 
 
 def copy_to_clipboard(plain_text: str, rich_text: str = '',
-                      text_type: Union[QtCore.Qt.TextFormat, str] = QtCore.Qt.TextFormat.PlainText) -> None:
+                      text_type: QtCore.Qt.TextFormat | str = QtCore.Qt.TextFormat.PlainText) -> None:
     clipboard: QtGui.QClipboard = QtWidgets.QApplication.clipboard()
     mime_data: QtCore.QMimeData = QtCore.QMimeData()
     if isinstance(text_type, str):
@@ -43,17 +44,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menu_view: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
         self.menu_plot: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
         self.menu_about: QtWidgets.QMenu = QtWidgets.QMenu(self.menu_bar)
-        self.action_open: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_export: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_reload: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_preferences: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_quit: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_copy: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_copy_all: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_select_all: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_show_plot: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_about: QtWidgets.QAction = QtWidgets.QAction(self)
-        self.action_about_qt: QtWidgets.QAction = QtWidgets.QAction(self)
+        self.action_open: QtGui.QAction = QtGui.QAction(self)
+        self.action_export: QtGui.QAction = QtGui.QAction(self)
+        self.action_reload: QtGui.QAction = QtGui.QAction(self)
+        self.action_preferences: QtGui.QAction = QtGui.QAction(self)
+        self.action_quit: QtGui.QAction = QtGui.QAction(self)
+        self.action_copy: QtGui.QAction = QtGui.QAction(self)
+        self.action_copy_all: QtGui.QAction = QtGui.QAction(self)
+        self.action_select_all: QtGui.QAction = QtGui.QAction(self)
+        self.action_show_plot: QtGui.QAction = QtGui.QAction(self)
+        self.action_about: QtGui.QAction = QtGui.QAction(self)
+        self.action_about_qt: QtGui.QAction = QtGui.QAction(self)
         self.status_bar: QtWidgets.QStatusBar = QtWidgets.QStatusBar(self)
 
         self._opened_file_name: str = ''
@@ -111,10 +112,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_export.setObjectName('action_export')
         self.action_reload.setIcon(QtGui.QIcon.fromTheme('view-refresh'))
         self.action_reload.setObjectName('action_reload')
-        self.action_preferences.setMenuRole(QtWidgets.QAction.MenuRole.PreferencesRole)
+        self.action_preferences.setMenuRole(QtGui.QAction.MenuRole.PreferencesRole)
         self.action_preferences.setObjectName('action_preferences')
         self.action_quit.setIcon(QtGui.QIcon.fromTheme('application-exit'))
-        self.action_quit.setMenuRole(QtWidgets.QAction.MenuRole.QuitRole)
+        self.action_quit.setMenuRole(QtGui.QAction.MenuRole.QuitRole)
         self.action_quit.setObjectName('action_quit')
         self.action_copy.setIcon(QtGui.QIcon.fromTheme('edit-copy'))
         self.action_copy.setObjectName('action_copy')
@@ -122,13 +123,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_copy_all.setObjectName('action_copy')
         self.action_select_all.setIcon(QtGui.QIcon.fromTheme('edit-select-all'))
         self.action_select_all.setObjectName('action_select_all')
-        self.action_show_plot.setMenuRole(QtWidgets.QAction.MenuRole.ApplicationSpecificRole)
+        self.action_show_plot.setMenuRole(QtGui.QAction.MenuRole.ApplicationSpecificRole)
         self.action_show_plot.setObjectName('action_show_about')
         self.action_about.setIcon(QtGui.QIcon.fromTheme('help-about'))
-        self.action_about.setMenuRole(QtWidgets.QAction.MenuRole.AboutRole)
+        self.action_about.setMenuRole(QtGui.QAction.MenuRole.AboutRole)
         self.action_about.setObjectName('action_about')
         self.action_about_qt.setIcon(QtGui.QIcon.fromTheme('help-about-qt'))
-        self.action_about_qt.setMenuRole(QtWidgets.QAction.MenuRole.AboutQtRole)
+        self.action_about_qt.setMenuRole(QtGui.QAction.MenuRole.AboutQtRole)
         self.action_about_qt.setObjectName('action_about_qt')
         self.menu_file.addAction(self.action_open)
         self.menu_file.addAction(self.action_export)
@@ -219,8 +220,8 @@ class MainWindow(QtWidgets.QMainWindow):
         window_frame.moveCenter(desktop_center)
         self.move(window_frame.topLeft())
 
-        self.restoreGeometry(self.settings.value('geometry', QtCore.QByteArray()))
-        self.restoreState(self.settings.value('state', QtCore.QByteArray()))
+        self.restoreGeometry(cast(QtCore.QByteArray, self.settings.value('geometry', QtCore.QByteArray())))
+        self.restoreState(cast(QtCore.QByteArray, self.settings.value('state', QtCore.QByteArray())))
         self.settings.endGroup()
 
     def save_settings(self) -> None:
@@ -240,7 +241,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Convert selected cells to string for copying as plain text
         :return: the plain text representation of the selected table lines
         """
-        text_matrix: List[List[str]]
+        text_matrix: list[list[str]]
         if whole_table:
             text_matrix = [[self.table_model.formatted_item(row, column)
                             for column in range(self.table_model.columnCount())
@@ -248,14 +249,14 @@ class MainWindow(QtWidgets.QMainWindow):
                            for row in range(self.table_model.rowCount(available_count=True))]
         else:
             si: QtCore.QModelIndex
-            rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
-            cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
+            rows: list[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
+            cols: list[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
             text_matrix = [['' for _ in range(len(cols))]
                            for _ in range(len(rows))]
             for si in self.table.selectedIndexes():
                 text_matrix[rows.index(si.row())][cols.index(si.column())] = self.table_model.data(si) or ''
-        row_texts: List[str]
-        text: List[str] = [self.settings.csv_separator.join(row_texts) for row_texts in text_matrix]
+        row_texts: list[str]
+        text: list[str] = [self.settings.csv_separator.join(row_texts) for row_texts in text_matrix]
         return self.settings.line_end.join(text)
 
     def stringify_selection_html(self, whole_table: bool = False) -> str:
@@ -263,7 +264,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Convert selected cells to string for copying as rich text
         :return: the rich text representation of the selected table lines
         """
-        text_matrix: List[List[str]]
+        text_matrix: list[list[str]]
         if whole_table:
             text_matrix = [[('<td>' + self.table_model.formatted_item(row, column) + '</td>')
                             for column in range(self.table_model.columnCount())
@@ -271,15 +272,15 @@ class MainWindow(QtWidgets.QMainWindow):
                            for row in range(self.table_model.rowCount(available_count=True))]
         else:
             si: QtCore.QModelIndex
-            rows: List[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
-            cols: List[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
+            rows: list[int] = sorted(list(set(si.row() for si in self.table.selectedIndexes())))
+            cols: list[int] = sorted(list(set(si.column() for si in self.table.selectedIndexes())))
             text_matrix = [['' for _ in range(len(cols))]
                            for _ in range(len(rows))]
             for si in self.table.selectedIndexes():
                 text_matrix[rows.index(si.row())][cols.index(si.column())] = \
                     '<td>' + (self.table_model.data(si) or '') + '</td>'
-        row_texts: List[str]
-        text: List[str] = [('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>')
+        row_texts: list[str]
+        text: list[str] = [('<tr>' + self.settings.csv_separator.join(row_texts) + '</tr>')
                            for row_texts in text_matrix]
         text.insert(0, '<table>')
         text.append('</table>')
@@ -302,7 +303,7 @@ class MainWindow(QtWidgets.QMainWindow):
             index: int
             title: str
             for index, title in enumerate(self.table_model.header):
-                action: QtWidgets.QAction = self.menu_view.addAction(title)
+                action: QtGui.QAction = self.menu_view.addAction(title)
                 action.setCheckable(True)
                 if (self.settings.is_visible(title)
                         and (self.settings.show_all_zero_columns
@@ -324,7 +325,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def save_csv(self, filename: str) -> bool:
         visible_column_indices: np.ndarray = np.array([index for index, title in enumerate(self.table_model.header)
                                                        if self.settings.is_visible(title)])
-        visible_column_names: List[str] = list(filter(self.settings.is_visible, self.table_model.header))
+        visible_column_names: list[str] = list(filter(self.settings.is_visible, self.table_model.header))
         try:
             np.savetxt(filename, self.table_model.all_data[visible_column_indices].T, fmt='%s',
                        delimiter=self.settings.csv_separator, newline=self.settings.line_end,
@@ -347,9 +348,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_bar.showMessage(' '.join(repr(a) for a in ex.args))
             return False
 
-        visible_column_indices: List[int] = [index for index, title in enumerate(self.table_model.header)
+        visible_column_indices: list[int] = [index for index, title in enumerate(self.table_model.header)
                                              if self.settings.is_visible(title)]
-        visible_column_names: List[str] = list(filter(self.settings.is_visible, self.table_model.header))
+        visible_column_names: list[str] = list(filter(self.settings.is_visible, self.table_model.header))
         try:
             workbook: Workbook = Workbook(filename,
                                           {'default_date_format': 'dd.mm.yyyy hh:mm:ss',
@@ -382,7 +383,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_action_open_triggered(self) -> None:
         new_file_name: str
-        new_file_name, _ = FileDialog.getOpenFileName(
+        new_file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, self.tr('Open'),
             self._opened_file_name,
             f'{self.tr("VeriCold data logfile")} (*.vcl);;{self.tr("All Files")} (*.*)')
@@ -390,8 +391,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setWindowTitle(f'{new_file_name} — {getattr(self, "initial_window_title")}')
 
     def on_action_export_triggered(self) -> None:
-        supported_formats: Dict[str, str] = {'.csv': f'{self.tr("Text with separators")} (*.csv)'}
-        supported_formats_callbacks: Dict[str, Callable[[str], bool]] = {'.csv': self.save_csv}
+        supported_formats: dict[str, str] = {'.csv': f'{self.tr("Text with separators")} (*.csv)'}
+        supported_formats_callbacks: dict[str, Callable[[str], bool]] = {'.csv': self.save_csv}
         try:
             import xlsxwriter
         except ImportError:
@@ -406,12 +407,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 initial_filter = supported_formats[exported_file_name_ext]
         new_file_name: str
         new_file_name_filter: str  # BUG: it's empty when a native dialog is used
-        new_file_name, new_file_name_filter = FileDialog.getSaveFileName(
+        new_file_name, new_file_name_filter = QtWidgets.QFileDialog.getSaveFileName(
             self, self.tr('Export'),
             str(Path(self._exported_file_name or self._opened_file_name)
                 .with_name(Path(self._opened_file_name).name)),
-            filter=';;'.join(supported_formats.values()),
-            initialFilter=initial_filter,  # BUG: it is not taken into account empty when a native dialog is used
+            ';;'.join(supported_formats.values()),
+            initial_filter,  # BUG: it is not taken into account when a native dialog is used
         )
         if not new_file_name:
             return
@@ -420,7 +421,7 @@ class MainWindow(QtWidgets.QMainWindow):
             supported_formats_callbacks[new_file_name_ext](new_file_name)
 
     def on_action_column_triggered(self) -> None:
-        a: QtWidgets.QAction
+        a: QtGui.QAction
         i: int
         for i, a in enumerate(self.menu_view.actions()):
             if a.isChecked() and (self.settings.show_all_zero_columns
@@ -445,7 +446,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         title: str
         visibility: bool
-        action: QtWidgets.QAction
+        action: QtGui.QAction
         column: int
         for column, (visibility, action) in enumerate(zip(self.settings.visible_columns, self.menu_view.actions())):
             if action.isChecked() != visibility:

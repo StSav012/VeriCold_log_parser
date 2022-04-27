@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 from pathlib import Path
-from typing import BinaryIO, Final, List, Optional, Tuple, Union
+from typing import BinaryIO, Final, Optional
 
 _MAX_CHANNELS_COUNT: Final[int] = 52
 
@@ -11,10 +13,10 @@ try:
     import numpy as np
     from numpy.typing import NDArray
 
-    def parse(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], NDArray[np.float64]]:
-        def _parse(file_handle: BinaryIO) -> Tuple[List[str], NDArray[np.float64]]:
+    def parse(filename: str | Path | BinaryIO) -> tuple[list[str], NDArray[np.float64]]:
+        def _parse(file_handle: BinaryIO) -> tuple[list[str], NDArray[np.float64]]:
             file_handle.seek(0x1800 + 32)
-            titles: List[str] = [file_handle.read(32).strip(b'\0').decode('ascii')
+            titles: list[str] = [file_handle.read(32).strip(b'\0').decode('ascii')
                                  for _ in range(_MAX_CHANNELS_COUNT - 1)]
             titles = list(filter(None, titles))
             file_handle.seek(0x3000)
@@ -42,15 +44,15 @@ try:
 except ImportError:
     import struct
 
-    def parse(filename: Union[str, Path, BinaryIO]) -> Tuple[List[str], List[List[float]]]:
-        def _parse(file_handle: BinaryIO) -> Tuple[List[str], List[List[float]]]:
+    def parse(filename: str | Path | BinaryIO) -> tuple[list[str], list[list[float]]]:
+        def _parse(file_handle: BinaryIO) -> tuple[list[str], list[list[float]]]:
             file_handle.seek(0x1800 + 32)
-            titles: List[str] = list(map(lambda s: s.strip(b'\0').decode('ascii'),
+            titles: list[str] = list(map(lambda s: s.strip(b'\0').decode('ascii'),
                                          struct.unpack_from('<' + '32s' * (_MAX_CHANNELS_COUNT - 1),
                                                             file_handle.read((_MAX_CHANNELS_COUNT - 1) * 32))))
             titles = list(filter(None, titles))
             file_handle.seek(0x3000)
-            data: List[List[float]] = [[] for _ in range(len(titles))]
+            data: list[list[float]] = [[] for _ in range(len(titles))]
             while True:
                 data_size_data: bytes = file_handle.read(double_size)
                 if not data_size_data:
